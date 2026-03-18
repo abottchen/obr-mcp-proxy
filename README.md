@@ -136,6 +136,12 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 | `move_toward` | Move toward another item (N cells or adjacent) |
 | `move_direction` | Move in a cardinal/ordinal direction (N cells or by walking speed) |
 
+### Combat
+
+| Tool | Description |
+|------|-------------|
+| `roll_dice` | Roll dice with D&D notation (e.g. 2d6+3), supports advantage/disadvantage |
+
 ### Rumble Integration
 
 | Tool | Description |
