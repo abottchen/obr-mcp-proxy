@@ -101,6 +101,33 @@ Create `.mcp.json` in the project root:
 
 ## MCP Tools
 
+### Read-only
+
 | Tool | Description |
 |------|-------------|
 | `get_items` | List scene items with optional filtering by layer or name |
+| `get_item` | Get a single item by ID or name |
+| `get_metadata` | Get scene-level metadata |
+| `get_item_metadata` | Get metadata for a specific item (Clash stats, etc.) |
+| `get_players` | Get connected players |
+| `get_grid` | Get grid settings (DPI, scale, type, measurement) |
+| `find_items_near` | Find items within a radius of a point or item, with distances |
+
+### Scene Manipulation
+
+| Tool | Description |
+|------|-------------|
+| `update_item` | Update item properties (name, visible, locked, layer) |
+| `set_visible` | Batch show/hide items by name pattern |
+| `update_item_metadata` | Merge metadata on an item |
+| `update_scene_metadata` | Merge scene-level metadata |
+| `add_item` | Place a new item (IMAGE, SHAPE, TEXT, LABEL) |
+| `delete_item` | Remove an item from the scene |
+
+### Movement
+
+| Tool | Description |
+|------|-------------|
+| `move_item` | Move to absolute pixel position with optional grid snap |
+| `move_toward` | Move toward another item (N cells or adjacent) |
+| `move_direction` | Move in a cardinal/ordinal direction (N cells or by walking speed) |
