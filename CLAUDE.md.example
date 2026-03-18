@@ -1,0 +1,152 @@
+# OBR MCP Bridge — Combat Operations Guide
+
+## Tool Usage Principles
+
+- **Read tools** accept item names or UUIDs
+- **Mutation and movement tools** require UUIDs — always look up IDs via `get_items` or `get_item` first
+- **Minimize data transfer** — use `get_items` for discovery (returns no metadata), then `get_item_metadata` with specific `fields` for targeted data
+- **Discover metadata fields** — use `list_metadata_keys` on an unfamiliar token before requesting specific fields
+- **Log all combat actions** to Rumble chat via `send_chat`, targeting the GM only (not the whole party)
+
+## Session Setup
+
+At the start of a combat session, look up the GM's OBR player ID so chat messages can be sent privately:
+```
+get_item(any_gm_created_token) → createdUserId is the GM's player ID
+```
+Store this as GM_PLAYER_ID and use it as the `target_id` for all `send_chat` calls.
+This keeps combat logs visible only to the GM, not broadcast to all players.
+
+## Scene Orientation
+
+1. Call `get_items(layer="CHARACTER")` to see all tokens with positions
+2. Call `get_grid` to understand the grid (DPI, scale, type)
+3. Use `find_items_near` to understand spatial relationships between tokens
+
+## Token Sizes
+
+Token size is encoded in the item's `grid` field:
+- Medium (1x1): `grid.dpi=256, offset={x:128, y:128}` — snaps to cell centers
+- Large (2x2): `grid.dpi=256, offset={x:256, y:256}` — snaps to grid intersections
+- Huge (3x3): `grid.dpi=256, offset={x:384, y:384}` — snaps to cell centers
+- Gargantuan (4x4): `grid.dpi=256, offset={x:512, y:512}` — snaps to grid intersections
+
+The movement tools handle snap mode automatically based on token size.
+
+## Reading Combat Stats (Clash Metadata)
+
+Clash stores all stat data as item metadata with the `com.battle-system.clash/` prefix.
+The `get_item_metadata` tool accepts short names without the prefix.
+
+Common fields for combat:
+- `clash_currentHP`, `clash_maxHP`, `clash_armorClass`
+- `clash_initiative`
+- `clash_standardActions` — array of `{name, desc}` with attack info
+- `clash_bonusActions`, `clash_reactions`, `clash_spellActions`
+- `clash_specialAbilities`, `clash_legendaryActions`
+- `clash_speedWalk`, `clash_speedFly`, `clash_speedClimb`, `clash_speedSwim`
+- `clash_strScore`, `clash_dexScore`, etc. (all six ability scores)
+- `clash_strSave`, `clash_dexSave`, etc. (all six save bonuses)
+- `clash_damageResistances`, `clash_damageImmunities`, `clash_damageVulnerabilities`
+- `clash_conditionImmunities`
+
+## Combat Round Procedure
+
+### 1. Establish Initiative Order
+
+```
+get_items(layer="CHARACTER") → get list of combatant IDs
+get_item_metadata(id, ["clash_initiative"]) for each → sort by initiative descending
+```
+
+### 2. For Each Combatant's Turn
+
+**a. Check position and surroundings**
+```
+get_item(name) → current position
+find_items_near(origin=name, radius_feet=30, layer="CHARACTER") → who's nearby
+```
+
+**b. Move if needed**
+```
+move_toward(item_id, target_id, adjacent=true)  → move next to target
+move_direction(item_id, "north", cells=4)        → move in a direction
+move_item(item_id, x, y)                         → move to exact position
+```
+Note: `move_toward adjacent` accounts for token sizes. Large tokens need more space.
+The movement tools do NOT check for collision with other tokens — be aware of the battlefield.
+
+**c. Get attack info**
+```
+get_item_metadata(attacker_id, ["clash_standardActions"])
+```
+Parse the action descriptions for attack bonus and damage dice.
+Format: "+X to hit" and "N (XdY+Z) type damage"
+
+**d. Get target's AC**
+```
+get_item_metadata(target_id, ["clash_armorClass"])
+```
+
+**e. Roll attacks**
+```
+roll_dice("1d20+5")                    → standard attack
+roll_dice("1d20+5", mode="advantage")  → with advantage
+```
+Compare total to AC. Ties hit. Natural 20 is a critical hit (double damage dice).
+
+**f. Roll damage on hit**
+```
+roll_dice("2d6+3")  → normal damage
+roll_dice("4d6+3")  → critical hit (double the dice, not the modifier)
+```
+
+**g. Apply damage**
+```
+get_item_metadata(target_id, ["clash_currentHP"]) → current HP
+# Calculate new HP
+update_item_metadata(target_id, {"com.battle-system.clash/clash_currentHP": new_hp})
+```
+Note: `update_item_metadata` requires the full key with prefix for writes.
+
+**h. Log to Rumble chat**
+```
+send_chat("Goblin attacks Grieg with Scimitar. Roll: 18 vs AC 17. Hit! 7 slashing damage. Grieg HP: 45/52.", target_id=GM_PLAYER_ID)
+```
+
+### 3. Advance to Next Turn
+
+Initiative tracking is managed in the Clash UI — the turn counter cannot be advanced programmatically.
+
+## Attack Resolution Quick Reference
+
+1. Parse attack from Clash action description: `"+5 to hit"` → modifier is +5
+2. `roll_dice("1d20+5")` → check if total >= target AC
+3. On hit, parse damage: `"7 (1d8+3) piercing"` → roll `1d4+3` for actual damage
+4. On critical (natural 20): double the dice → `2d8+3`
+5. Check target's `clash_damageResistances` / `clash_damageImmunities` / `clash_damageVulnerabilities`
+6. Apply: resistance = half damage, immunity = no damage, vulnerability = double damage
+7. Update HP and log
+
+## Multiattack
+
+Many creatures have a Multiattack action describing how many attacks they make per turn.
+Read it first, then resolve each individual attack in sequence. If a target drops to 0 HP
+mid-multiattack, redirect remaining attacks to the next nearest valid target.
+
+## Spell Attacks and Saving Throws
+
+Spell actions follow similar patterns:
+- Spell attack: `"+6 to hit"` → roll like a weapon attack
+- Saving throw: `"DC 15 WIS save"` → roll `1d20` + target's save bonus, compare to DC
+- On failed save: apply full effect/damage
+- On successful save: usually half damage or no effect (read the spell description)
+
+## Movement Considerations
+
+- Each creature has a walking speed in `clash_speedWalk` (in feet)
+- One grid cell = scale multiplier feet (usually 5ft)
+- `move_direction(id, "north", use_speed=true)` moves the full walking speed
+- `move_toward(id, target_id, adjacent=true)` stops at the edge of the target's space
+- Creatures cannot move through enemy spaces (the tools don't enforce this — be aware)
+- Disengage: creature uses its action to avoid opportunity attacks, then moves normally
