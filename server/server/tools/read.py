@@ -95,6 +95,26 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         return result if isinstance(result, dict) else {}
 
     @mcp.tool()
+    async def get_player_metadata() -> dict:
+        """Get metadata for the current player (the GM running the relay).
+
+        Returns:
+            Player metadata dict. May contain Rumble chat/dice state and other extension data.
+        """
+        result = await relay.send_request("player.getMetadata")
+        return result if isinstance(result, dict) else {}
+
+    @mcp.tool()
+    async def get_room_metadata() -> dict:
+        """Get room-level metadata (persists across scenes).
+
+        Returns:
+            Room metadata dict. May contain extension data from Rumble, Quick Store, etc.
+        """
+        result = await relay.send_request("room.getMetadata")
+        return result if isinstance(result, dict) else {}
+
+    @mcp.tool()
     async def get_item_metadata(
         identifier: str,
         fields: list[str] | None = None,

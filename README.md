@@ -108,8 +108,11 @@ Create `.mcp.json` in the project root:
 | `get_items` | List scene items with optional filtering by layer or name |
 | `get_item` | Get a single item by ID or name |
 | `get_metadata` | Get scene-level metadata |
-| `get_item_metadata` | Get metadata for a specific item (Clash stats, etc.) |
+| `get_item_metadata` | Get metadata for a specific item, with optional field filtering |
+| `list_metadata_keys` | List available metadata keys on an item |
 | `get_players` | Get connected players |
+| `get_player_metadata` | Get current player's metadata |
+| `get_room_metadata` | Get room-level metadata (persists across scenes) |
 | `get_grid` | Get grid settings (DPI, scale, type, measurement) |
 | `find_items_near` | Find items within a radius of a point or item, with distances |
 
@@ -119,7 +122,7 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 
 | Tool | Description |
 |------|-------------|
-| `update_item` | Update item properties (name, visible, locked, layer) |
+| `update_item` | Update item properties via arbitrary fields dict |
 | `update_item_metadata` | Merge metadata on an item |
 | `update_scene_metadata` | Merge scene-level metadata |
 | `add_item` | Place a new item (IMAGE, SHAPE, TEXT, LABEL) |
@@ -132,3 +135,9 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 | `move_item` | Move to absolute pixel position with optional grid snap |
 | `move_toward` | Move toward another item (N cells or adjacent) |
 | `move_direction` | Move in a cardinal/ordinal direction (N cells or by walking speed) |
+
+### Rumble Integration
+
+| Tool | Description |
+|------|-------------|
+| `send_chat` | Post a message to Rumble's shared chat log |

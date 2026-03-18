@@ -148,7 +148,25 @@ const handlers: Record<string, Handler> = {
     );
   },
 
-  // Players
+  // Room metadata
+  "room.getMetadata": async () => {
+    return await OBR.room.getMetadata();
+  },
+
+  // Player
+  "player.getId": async () => {
+    return await OBR.player.getId();
+  },
+
+  "player.getMetadata": async () => {
+    return await OBR.player.getMetadata();
+  },
+
+  "player.setMetadata": async (params) => {
+    await OBR.player.setMetadata(params.metadata as Metadata);
+  },
+
+  // Party
   "party.getPlayers": async () => {
     return await OBR.party.getPlayers();
   },
