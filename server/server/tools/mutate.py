@@ -7,37 +7,22 @@ from ..websocket_server import RelayConnection
 
 def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     @mcp.tool()
-    async def update_item(
-        item_id: str,
-        name: str | None = None,
-        visible: bool | None = None,
-        locked: bool | None = None,
-        layer: str | None = None,
-    ) -> dict:
+    async def update_item(item_id: str, fields: dict) -> dict:
         """Update properties of a scene item.
 
         Args:
             item_id: The item's UUID. Use get_items or get_item to find the ID first.
-            name: New display name.
-            visible: Set visibility (true = visible to players).
-            locked: Set locked state (true = cannot be moved).
-            layer: Move to layer (CHARACTER, MAP, PROP, DRAWING, etc).
+            fields: Dict of fields to set. Common fields include:
+                name (str), visible (bool), locked (bool), layer (str),
+                position ({x, y}), rotation (number), scale ({x, y}),
+                zIndex (number), disableHit (bool), attachedTo (str),
+                description (str), disableAutoZIndex (bool).
 
         Returns:
             The update that was applied.
         """
-        fields: dict = {}
-        if name is not None:
-            fields["name"] = name
-        if visible is not None:
-            fields["visible"] = visible
-        if locked is not None:
-            fields["locked"] = locked
-        if layer is not None:
-            fields["layer"] = layer.upper()
-
         if not fields:
-            raise ValueError("No fields to update. Provide at least one of: name, visible, locked, layer")
+            raise ValueError("No fields to update")
 
         await relay.send_request(
             "scene.items.updateItems",
