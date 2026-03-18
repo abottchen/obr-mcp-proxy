@@ -17,13 +17,14 @@ REQUEST_TIMEOUT = 10.0
 class RelayConnection:
     """Manages the WebSocket connection to the OBR relay extension."""
 
-    def __init__(self, token: str, port: int = DEFAULT_PORT) -> None:
+    def __init__(self, token: str, port: int = DEFAULT_PORT, max_concurrent: int = 3) -> None:
         self._token = token
         self._port = port
         self._ws: ServerConnection | None = None
         self._server: Server | None = None
         self._pending: dict[str, asyncio.Future[dict]] = {}
         self._authenticated = False
+        self._semaphore = asyncio.Semaphore(max_concurrent)
 
     @property
     def connected(self) -> bool:
@@ -46,30 +47,31 @@ class RelayConnection:
         self._reject_all_pending("Server shutting down")
 
     async def send_request(self, method: str, params: dict | None = None) -> dict:
-        if not self.connected:
-            raise ConnectionError("Relay extension is not connected")
+        async with self._semaphore:
+            if not self.connected:
+                raise ConnectionError("Relay extension is not connected")
 
-        request_id = str(uuid.uuid4())
-        message = {
-            "type": "request",
-            "requestId": request_id,
-            "method": method,
-            "params": params or {},
-        }
+            request_id = str(uuid.uuid4())
+            message = {
+                "type": "request",
+                "requestId": request_id,
+                "method": method,
+                "params": params or {},
+            }
 
-        future: asyncio.Future[dict] = asyncio.get_running_loop().create_future()
-        self._pending[request_id] = future
+            future: asyncio.Future[dict] = asyncio.get_running_loop().create_future()
+            self._pending[request_id] = future
 
-        try:
-            await self._ws.send(json.dumps(message))  # type: ignore[union-attr]
-            return await asyncio.wait_for(future, timeout=REQUEST_TIMEOUT)
-        except asyncio.TimeoutError:
-            self._pending.pop(request_id, None)
-            raise TimeoutError(
-                f"Relay did not respond to {method} within {REQUEST_TIMEOUT}s"
-            )
-        except Exception:
-            self._pending.pop(request_id, None)
+            try:
+                await self._ws.send(json.dumps(message))  # type: ignore[union-attr]
+                return await asyncio.wait_for(future, timeout=REQUEST_TIMEOUT)
+            except asyncio.TimeoutError:
+                self._pending.pop(request_id, None)
+                raise TimeoutError(
+                    f"Relay did not respond to {method} within {REQUEST_TIMEOUT}s"
+                )
+            except Exception:
+                self._pending.pop(request_id, None)
             raise
 
     async def _handle_connection(self, ws: ServerConnection) -> None:

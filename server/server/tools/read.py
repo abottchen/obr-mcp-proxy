@@ -6,6 +6,32 @@ from ..grid import euclidean_distance, fetch_grid_info, pixels_to_feet
 from ..items import resolve_item
 from ..websocket_server import RelayConnection
 
+CLASH_PREFIX = "com.battle-system.clash/"
+
+
+def _strip_metadata(item: dict) -> dict:
+    """Return a copy of the item with metadata removed."""
+    return {k: v for k, v in item.items() if k != "metadata"}
+
+
+def _filter_metadata(metadata: dict, fields: list[str]) -> dict:
+    """Return only the requested fields from metadata.
+
+    Accepts short field names (e.g. 'clash_currentHP') or full keys
+    (e.g. 'com.battle-system.clash/clash_currentHP').
+    """
+    result = {}
+    for field in fields:
+        # Try exact key first
+        if field in metadata:
+            result[field] = metadata[field]
+        else:
+            # Try with Clash prefix
+            prefixed = f"{CLASH_PREFIX}{field}"
+            if prefixed in metadata:
+                result[field] = metadata[prefixed]
+    return result
+
 
 def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     @mcp.tool()
@@ -15,12 +41,15 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     ) -> list[dict]:
         """List all items in the current Owlbear Rodeo scene.
 
+        Returns lightweight item data without metadata. Use get_item_metadata
+        to retrieve metadata for specific items.
+
         Args:
             layer: Filter by layer (CHARACTER, MAP, PROP, DRAWING, FOG, ATTACHMENT, NOTE, POPOVER, RULER, GRID)
             name: Filter by name (case-insensitive substring match)
 
         Returns:
-            Array of scene items with id, name, type, layer, position, visible, locked, and metadata.
+            Array of scene items with id, name, type, layer, position, visible, and locked.
         """
         items = await relay.send_request("scene.items.getItems")
 
@@ -37,19 +66,23 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
                 i for i in items if name_lower in (i.get("name", "") or "").lower()
             ]
 
-        return items
+        return [_strip_metadata(i) for i in items]
 
     @mcp.tool()
     async def get_item(identifier: str) -> dict:
         """Get a single item by ID or name.
 
+        Returns lightweight item data without metadata. Use get_item_metadata
+        to retrieve metadata.
+
         Args:
             identifier: Item ID (exact match) or name (case-insensitive). Errors if ambiguous.
 
         Returns:
-            The matching scene item with all fields.
+            The matching scene item without metadata.
         """
-        return await resolve_item(relay, identifier)
+        item = await resolve_item(relay, identifier)
+        return _strip_metadata(item)
 
     @mcp.tool()
     async def get_metadata() -> dict:
@@ -62,17 +95,49 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         return result if isinstance(result, dict) else {}
 
     @mcp.tool()
-    async def get_item_metadata(identifier: str) -> dict:
+    async def get_item_metadata(
+        identifier: str,
+        fields: list[str] | None = None,
+    ) -> dict:
         """Get metadata for a specific item.
+
+        Args:
+            identifier: Item ID or name.
+            fields: Optional list of metadata field names to return. Accepts short
+                names without the Clash prefix (e.g. 'clash_currentHP' instead of
+                'com.battle-system.clash/clash_currentHP'). If omitted, returns all metadata.
+
+        Returns:
+            The item's metadata dict, filtered to requested fields if specified.
+        """
+        item = await resolve_item(relay, identifier)
+        metadata = item.get("metadata", {})
+
+        if fields:
+            return _filter_metadata(metadata, fields)
+
+        return metadata
+
+    @mcp.tool()
+    async def list_metadata_keys(identifier: str) -> list[str]:
+        """List the metadata key names available on an item.
+
+        Call this first to discover what fields exist before using
+        get_item_metadata with specific field names. This avoids pulling
+        the entire metadata object when you only need a few values.
+        Each item has its own metadata; tokens with Clash stats will have
+        keys like clash_currentHP, clash_armorClass, clash_standardActions, etc.
+        Tokens without Clash setup will have no keys.
 
         Args:
             identifier: Item ID or name.
 
         Returns:
-            The item's metadata dict (includes Clash stats if configured).
+            List of metadata key names present on the item.
         """
         item = await resolve_item(relay, identifier)
-        return item.get("metadata", {})
+        metadata = item.get("metadata", {})
+        return list(metadata.keys())
 
     @mcp.tool()
     async def get_players() -> list[dict]:
@@ -114,6 +179,8 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     ) -> list[dict]:
         """Find items within a radius of a point or another item.
 
+        Returns lightweight item data without metadata, plus a distance_feet field.
+
         Args:
             radius_feet: Search radius in game feet.
             origin: Item ID or name to use as center point. Mutually exclusive with x/y.
@@ -144,8 +211,7 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
 
         results = []
         for item in items:
-            # Skip the origin item itself
-            if origin and item.get("id") == (origin_item.get("id") if origin else None):
+            if origin and item.get("id") == origin_item.get("id"):
                 continue
 
             if layer:
@@ -158,7 +224,7 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
 
             dist_px = euclidean_distance(center, pos)
             if dist_px <= radius_pixels:
-                item_copy = dict(item)
+                item_copy = _strip_metadata(item)
                 item_copy["distance_feet"] = round(pixels_to_feet(dist_px, grid), 1)
                 results.append(item_copy)
 

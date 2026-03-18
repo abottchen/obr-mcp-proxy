@@ -76,7 +76,12 @@ export function connect(serverUrl: string, token: string, cb: RelayCallbacks) {
             type: "response",
             requestId,
             success: false,
-            error: err instanceof Error ? err.message : String(err),
+            error:
+              err instanceof Error
+                ? err.message
+                : typeof err === "string"
+                  ? err
+                  : JSON.stringify(err),
           })
         );
       }

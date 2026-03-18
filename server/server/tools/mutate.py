@@ -1,13 +1,14 @@
+import uuid
+
 from mcp.server.fastmcp import FastMCP
 
-from ..items import resolve_item, resolve_items_by_pattern
 from ..websocket_server import RelayConnection
 
 
 def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     @mcp.tool()
     async def update_item(
-        identifier: str,
+        item_id: str,
         name: str | None = None,
         visible: bool | None = None,
         locked: bool | None = None,
@@ -16,7 +17,7 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         """Update properties of a scene item.
 
         Args:
-            identifier: Item ID or name to update.
+            item_id: The item's UUID. Use get_items or get_item to find the ID first.
             name: New display name.
             visible: Set visibility (true = visible to players).
             locked: Set locked state (true = cannot be moved).
@@ -25,7 +26,6 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         Returns:
             The update that was applied.
         """
-        item = await resolve_item(relay, identifier)
         fields: dict = {}
         if name is not None:
             fields["name"] = name
@@ -41,52 +41,26 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
 
         await relay.send_request(
             "scene.items.updateItems",
-            {"items": [{"id": item["id"], **fields}]},
+            {"items": [{"id": item_id, **fields}]},
         )
-        return {"id": item["id"], "updated": fields}
+        return {"id": item_id, "updated": fields}
 
     @mcp.tool()
-    async def set_visible(pattern: str, visible: bool) -> dict:
-        """Show or hide items matching a name pattern.
-
-        Args:
-            pattern: Name pattern (case-insensitive substring match).
-            visible: True to show, false to hide.
-
-        Returns:
-            Count and names of items updated.
-        """
-        items = await resolve_items_by_pattern(relay, pattern)
-        if not items:
-            raise ValueError(f"No items matched pattern: {pattern}")
-
-        updates = [{"id": i["id"], "visible": visible} for i in items]
-        await relay.send_request("scene.items.updateItems", {"items": updates})
-
-        names = [i.get("name", i["id"]) for i in items]
-        return {
-            "count": len(items),
-            "names": names,
-            "visible": visible,
-        }
-
-    @mcp.tool()
-    async def update_item_metadata(identifier: str, metadata: dict) -> dict:
+    async def update_item_metadata(item_id: str, metadata: dict) -> dict:
         """Update metadata on a scene item (merged with existing metadata).
 
         Args:
-            identifier: Item ID or name.
+            item_id: The item's UUID. Use get_items or get_item to find the ID first.
             metadata: Dict of metadata keys to set. Merged with existing metadata, not replaced.
 
         Returns:
             The item ID and metadata keys that were set.
         """
-        item = await resolve_item(relay, identifier)
         await relay.send_request(
             "scene.items.updateItems",
-            {"items": [{"id": item["id"], "metadata": metadata}]},
+            {"items": [{"id": item_id, "metadata": metadata}]},
         )
-        return {"id": item["id"], "metadata_keys_set": list(metadata.keys())}
+        return {"id": item_id, "metadata_keys_set": list(metadata.keys())}
 
     @mcp.tool()
     async def update_scene_metadata(metadata: dict) -> dict:
@@ -102,21 +76,26 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         return {"metadata_keys_set": list(metadata.keys())}
 
     @mcp.tool()
-    async def delete_item(identifier: str) -> dict:
+    async def delete_item(item_id: str) -> dict:
         """Remove an item from the scene.
 
         Args:
-            identifier: Item ID or name of the item to delete.
+            item_id: The item's UUID. Use get_items or get_item to find the ID first.
 
         Returns:
             The ID and name of the deleted item.
         """
-        item = await resolve_item(relay, identifier)
+        # Verify the item exists before deleting
+        items = await relay.send_request("scene.items.getItems")
+        item = next((i for i in items if i.get("id") == item_id), None)
+        if not item:
+            raise ValueError(f"No item found with ID: {item_id}")
+
         await relay.send_request(
             "scene.items.deleteItems",
-            {"ids": [item["id"]]},
+            {"ids": [item_id]},
         )
-        return {"id": item["id"], "name": item.get("name", "")}
+        return {"id": item_id, "name": item.get("name", "")}
 
     @mcp.tool()
     async def add_item(
@@ -154,6 +133,7 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         """
         item_type = type.upper()
         item: dict = {
+            "id": str(uuid.uuid4()),
             "type": item_type,
             "name": name,
             "position": {"x": x, "y": y},

@@ -1,6 +1,16 @@
 from .websocket_server import RelayConnection
 
 
+async def get_item_by_id(relay: RelayConnection, item_id: str) -> dict:
+    """Fetch a single item by UUID. Raises ValueError if not found."""
+    items = await relay.send_request("scene.items.getItems")
+    if isinstance(items, list):
+        for item in items:
+            if item.get("id") == item_id:
+                return item
+    raise ValueError(f"No item found with ID: {item_id}")
+
+
 async def resolve_item(relay: RelayConnection, identifier: str) -> dict:
     """Find a single item by ID (exact match) or name (case-insensitive).
 
@@ -43,17 +53,3 @@ async def resolve_item(relay: RelayConnection, identifier: str) -> dict:
         )
 
     raise ValueError(f"Item not found: {identifier}")
-
-
-async def resolve_items_by_pattern(
-    relay: RelayConnection, pattern: str
-) -> list[dict]:
-    """Find all items matching a name pattern (case-insensitive substring)."""
-    items = await relay.send_request("scene.items.getItems")
-    if not isinstance(items, list):
-        return []
-
-    pattern_lower = pattern.lower()
-    return [
-        i for i in items if pattern_lower in (i.get("name") or "").lower()
-    ]

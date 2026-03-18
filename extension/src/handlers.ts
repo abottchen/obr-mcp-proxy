@@ -1,4 +1,13 @@
-import OBR, { type Item, type Metadata, type Vector2 } from "@owlbear-rodeo/sdk";
+import OBR, {
+  buildImage,
+  buildLabel,
+  buildShape,
+  buildText,
+  type Item,
+  type Layer,
+  type Metadata,
+  type Vector2,
+} from "@owlbear-rodeo/sdk";
 
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
 
@@ -27,7 +36,67 @@ const handlers: Record<string, Handler> = {
   },
 
   "scene.items.addItems": async (params) => {
-    await OBR.scene.items.addItems(params.items as Item[]);
+    const specs = params.items as Array<Record<string, unknown>>;
+    const built: Item[] = [];
+    for (const spec of specs) {
+      const itemType = spec.type as string;
+      const pos = spec.position as Vector2;
+      const meta = (spec.metadata as Metadata) ?? {};
+      const layer = (spec.layer as Layer) ?? "CHARACTER";
+
+      if (itemType === "IMAGE") {
+        const img = spec.image as { url: string; width: number; height: number; mime: string };
+        const grid = spec.grid as { dpi: number; offset: { x: number; y: number } };
+        const item = buildImage(
+          { url: img.url, width: img.width, height: img.height, mime: img.mime },
+          { dpi: grid.dpi, offset: grid.offset }
+        )
+          .position(pos)
+          .name((spec.name as string) ?? "")
+          .plainText((spec.name as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta)
+          .build();
+        built.push(item);
+      } else if (itemType === "SHAPE") {
+        const item = buildShape()
+          .position(pos)
+          .name((spec.name as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta)
+          .build();
+        built.push(item);
+      } else if (itemType === "TEXT") {
+        const item = buildText()
+          .position(pos)
+          .name((spec.name as string) ?? "")
+          .plainText((spec.text as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta)
+          .build();
+        built.push(item);
+      } else if (itemType === "LABEL") {
+        const item = buildLabel()
+          .position(pos)
+          .name((spec.name as string) ?? "")
+          .plainText((spec.text as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta)
+          .build();
+        built.push(item);
+      } else {
+        throw new Error(`Unsupported item type: ${itemType}`);
+      }
+    }
+    await OBR.scene.items.addItems(built);
   },
 
   "scene.items.deleteItems": async (params) => {

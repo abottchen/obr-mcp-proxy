@@ -115,10 +115,11 @@ Create `.mcp.json` in the project root:
 
 ### Scene Manipulation
 
+All mutation tools require item UUIDs. Use read tools to find IDs first.
+
 | Tool | Description |
 |------|-------------|
 | `update_item` | Update item properties (name, visible, locked, layer) |
-| `set_visible` | Batch show/hide items by name pattern |
 | `update_item_metadata` | Merge metadata on an item |
 | `update_scene_metadata` | Merge scene-level metadata |
 | `add_item` | Place a new item (IMAGE, SHAPE, TEXT, LABEL) |
