@@ -89,6 +89,34 @@ def pixels_to_feet(pixels: float, grid: GridInfo) -> float:
     return cells * grid.scale_multiplier
 
 
+def token_size_cells(item: dict) -> int:
+    """Get a token's size in grid cells (1 for Medium, 2 for Large, etc.)."""
+    item_grid = item.get("grid", {})
+    offset_x = item_grid.get("offset", {}).get("x", 128)
+    item_dpi = item_grid.get("dpi", 256)
+    # offset / item_dpi * 2 gives the size: 0.5/0.5*2=1 for Medium, 1.0/1.0*2=2 for Large
+    return round(offset_x / item_dpi * 2)
+
+
+def token_radius_px(item: dict, grid: GridInfo) -> float:
+    """Get a token's radius in pixels based on its grid offset.
+
+    A Medium token (1x1) has offset 128 with item dpi 256, so radius = 0.5 cells.
+    A Large token (2x2) has offset 256 with item dpi 256, so radius = 1.0 cells.
+    Returns the radius in scene pixels.
+    """
+    item_grid = item.get("grid", {})
+    offset_x = item_grid.get("offset", {}).get("x", 128)
+    item_dpi = item_grid.get("dpi", 256)
+    radius_cells = offset_x / item_dpi
+    return radius_cells * grid.dpi
+
+
+def is_even_sized(item: dict) -> bool:
+    """Return True if the token is even-sized (2x2, 4x4) and snaps to grid intersections."""
+    return token_size_cells(item) % 2 == 0
+
+
 def euclidean_distance(pos1: dict, pos2: dict) -> float:
     """Pixel-space Euclidean distance between two positions."""
     dx = pos1["x"] - pos2["x"]

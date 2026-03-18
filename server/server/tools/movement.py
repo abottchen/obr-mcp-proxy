@@ -1,3 +1,5 @@
+import math
+
 from mcp.server.fastmcp import FastMCP
 
 from ..grid import (
@@ -5,13 +7,28 @@ from ..grid import (
     compute_move_toward,
     euclidean_distance,
     fetch_grid_info,
+    is_even_sized,
     parse_direction,
     pixels_per_cell,
+    token_radius_px,
 )
 from ..items import get_item_by_id
 from ..websocket_server import RelayConnection
 
 CLASH_PREFIX = "com.battle-system.clash/"
+
+
+async def _snap_for_item(relay: RelayConnection, position: dict, item: dict) -> dict:
+    """Snap a position using the correct mode for the item's size."""
+    even = is_even_sized(item)
+    return await relay.send_request(
+        "scene.grid.snapPosition",
+        {
+            "position": position,
+            "useCenter": not even,
+            "useCorners": even,
+        },
+    )
 
 
 def register_movement_tools(mcp: FastMCP, relay: RelayConnection) -> None:
@@ -37,9 +54,7 @@ def register_movement_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         position = {"x": x, "y": y}
 
         if snap:
-            position = await relay.send_request(
-                "scene.grid.snapPosition", {"position": position}
-            )
+            position = await _snap_for_item(relay, position, item)
 
         await relay.send_request(
             "scene.items.updateItems",
@@ -78,18 +93,24 @@ def register_movement_tools(mcp: FastMCP, relay: RelayConnection) -> None:
 
         if adjacent:
             ppc = pixels_per_cell(grid)
+            source_radius = token_radius_px(item, grid)
+            target_radius = token_radius_px(target_item, grid)
             dist_px = euclidean_distance(from_pos, to_pos)
-            total_cells = dist_px / ppc
-            move_cells = max(0, int(total_cells) - 1)
-            new_pos = compute_move_toward(from_pos, to_pos, move_cells, grid)
+            # Stop when edges are one cell apart
+            stop_distance = source_radius + target_radius + ppc
+            if dist_px <= stop_distance:
+                # Already adjacent, don't move
+                new_pos = dict(from_pos)
+            else:
+                move_px = dist_px - stop_distance
+                move_cells = max(1, math.ceil(move_px / ppc))
+                new_pos = compute_move_toward(from_pos, to_pos, move_cells, grid)
         elif cells is not None:
             new_pos = compute_move_toward(from_pos, to_pos, cells, grid)
         else:
             raise ValueError("Provide either 'cells' or 'adjacent=true'")
 
-        snapped = await relay.send_request(
-            "scene.grid.snapPosition", {"position": new_pos}
-        )
+        snapped = await _snap_for_item(relay, new_pos, item)
 
         await relay.send_request(
             "scene.items.updateItems",
@@ -147,9 +168,7 @@ def register_movement_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         from_pos = item["position"]
         new_pos = compute_move(from_pos, dir_enum, move_cells, grid)
 
-        snapped = await relay.send_request(
-            "scene.grid.snapPosition", {"position": new_pos}
-        )
+        snapped = await _snap_for_item(relay, new_pos, item)
 
         await relay.send_request(
             "scene.items.updateItems",
