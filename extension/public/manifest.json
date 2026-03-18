@@ -1,0 +1,15 @@
+{
+  "name": "MCP Relay",
+  "description": "Relay extension that bridges an MCP server to the OBR SDK",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "author": "adam",
+  "icon": "https://localhost:5173/icon.svg",
+  "action": {
+    "title": "MCP Relay",
+    "icon": "https://localhost:5173/icon.svg",
+    "popover": "https://localhost:5173/index.html",
+    "height": 300,
+    "width": 300
+  }
+}

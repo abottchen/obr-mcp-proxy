@@ -1,0 +1,16 @@
+[project]
+name = "obr-mcp-server"
+version = "0.1.0"
+description = "MCP server that bridges Claude to Owlbear Rodeo via a relay extension"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp[cli]>=1.0.0",
+    "websockets>=14.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["server*"]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"

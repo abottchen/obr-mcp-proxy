@@ -1,0 +1,10 @@
+node_modules/
+dist/
+server/certs/
+server/*.egg-info/
+__pycache__/
+.venv/
+*.pyc
+.claude/
+.mcp.json
+.env
