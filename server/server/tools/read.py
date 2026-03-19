@@ -3,10 +3,9 @@ import asyncio
 from mcp.server.fastmcp import FastMCP
 
 from ..grid import euclidean_distance, fetch_grid_info, pixels_to_feet
+from ..constants import CLASH_PREFIX
 from ..items import resolve_item
 from ..websocket_server import RelayConnection
-
-CLASH_PREFIX = "com.battle-system.clash/"
 
 
 def _strip_metadata(item: dict) -> dict:

@@ -72,12 +72,19 @@ class RelayConnection:
                 )
             except Exception:
                 self._pending.pop(request_id, None)
-            raise
+                raise
 
     async def _handle_connection(self, ws: ServerConnection) -> None:
         if self._ws is not None:
-            await ws.close(4002, "Another relay is already connected")
-            return
+            logger.info("New relay connection superseding existing one")
+            old_ws = self._ws
+            self._ws = None
+            self._authenticated = False
+            self._reject_all_pending("Superseded by new connection")
+            try:
+                await old_ws.close(4003, "Superseded by new connection")
+            except Exception:
+                pass
 
         logger.info("Relay extension connecting...")
 

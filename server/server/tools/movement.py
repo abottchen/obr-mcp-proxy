@@ -12,10 +12,9 @@ from ..grid import (
     pixels_per_cell,
     token_radius_px,
 )
-from ..items import get_item_by_id
+from ..constants import CLASH_PREFIX
+from ..items import fetch_all_items, get_item_by_id
 from ..websocket_server import RelayConnection
-
-CLASH_PREFIX = "com.battle-system.clash/"
 
 
 async def _snap_for_item(relay: RelayConnection, position: dict, item: dict) -> dict:
@@ -84,8 +83,9 @@ def register_movement_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         Returns:
             The item's new position and distance moved.
         """
-        item = await get_item_by_id(relay, item_id)
-        target_item = await get_item_by_id(relay, target_id)
+        all_items = await fetch_all_items(relay)
+        item = await get_item_by_id(relay, item_id, items=all_items)
+        target_item = await get_item_by_id(relay, target_id, items=all_items)
         grid = await fetch_grid_info(relay)
 
         from_pos = item["position"]

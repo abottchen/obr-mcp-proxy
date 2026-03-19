@@ -1,23 +1,46 @@
 from .websocket_server import RelayConnection
 
 
-async def get_item_by_id(relay: RelayConnection, item_id: str) -> dict:
-    """Fetch a single item by UUID. Raises ValueError if not found."""
+async def fetch_all_items(relay: RelayConnection) -> list[dict]:
+    """Fetch all scene items in a single request."""
     items = await relay.send_request("scene.items.getItems")
-    if isinstance(items, list):
-        for item in items:
-            if item.get("id") == item_id:
-                return item
+    return items if isinstance(items, list) else []
+
+
+async def get_item_by_id(
+    relay: RelayConnection, item_id: str, *, items: list[dict] | None = None
+) -> dict:
+    """Fetch a single item by UUID. Raises ValueError if not found.
+
+    Args:
+        relay: The relay connection.
+        item_id: The item's UUID.
+        items: Optional pre-fetched item list to avoid an extra round-trip.
+    """
+    if items is None:
+        items = await fetch_all_items(relay)
+    for item in items:
+        if item.get("id") == item_id:
+            return item
     raise ValueError(f"No item found with ID: {item_id}")
 
 
-async def resolve_item(relay: RelayConnection, identifier: str) -> dict:
+async def resolve_item(
+    relay: RelayConnection, identifier: str, *, items: list[dict] | None = None
+) -> dict:
     """Find a single item by ID (exact match) or name (case-insensitive).
 
     Raises ValueError if not found or if multiple name matches exist.
+
+    Args:
+        relay: The relay connection.
+        identifier: Item ID or name.
+        items: Optional pre-fetched item list to avoid an extra round-trip.
     """
-    items = await relay.send_request("scene.items.getItems")
-    if not isinstance(items, list):
+    if items is None:
+        items = await fetch_all_items(relay)
+
+    if not items:
         raise ValueError(f"Item not found: {identifier}")
 
     # Try exact ID match first

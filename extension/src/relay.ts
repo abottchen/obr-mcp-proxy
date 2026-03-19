@@ -9,6 +9,14 @@ export interface RelayCallbacks {
 let ws: WebSocket | null = null;
 let currentState: ConnectionState = "disconnected";
 let callbacks: RelayCallbacks | null = null;
+let intentionalDisconnect = false;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempt = 0;
+let lastServerUrl = "";
+let lastToken = "";
+
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_MAX_MS = 30000;
 
 function setState(state: ConnectionState, error?: string) {
   currentState = state;
@@ -19,8 +27,38 @@ export function getState(): ConnectionState {
   return currentState;
 }
 
+function clearReconnectTimer() {
+  if (reconnectTimer !== null) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+function scheduleReconnect() {
+  if (intentionalDisconnect || !lastServerUrl) return;
+
+  const delay = Math.min(
+    RECONNECT_BASE_MS * Math.pow(2, reconnectAttempt),
+    RECONNECT_MAX_MS
+  );
+  reconnectAttempt++;
+
+  console.log(`[relay] Reconnecting in ${delay}ms (attempt ${reconnectAttempt})`);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!intentionalDisconnect && callbacks) {
+      connect(lastServerUrl, lastToken, callbacks);
+    }
+  }, delay);
+}
+
 export function connect(serverUrl: string, token: string, cb: RelayCallbacks) {
   callbacks = cb;
+  intentionalDisconnect = false;
+  clearReconnectTimer();
+
+  lastServerUrl = serverUrl;
+  lastToken = token;
 
   if (ws) {
     ws.close();
@@ -33,6 +71,7 @@ export function connect(serverUrl: string, token: string, cb: RelayCallbacks) {
     ws = new WebSocket(serverUrl);
   } catch (err) {
     setState("error", `Failed to connect: ${err}`);
+    scheduleReconnect();
     return;
   }
 
@@ -51,6 +90,7 @@ export function connect(serverUrl: string, token: string, cb: RelayCallbacks) {
     }
 
     if (msg.type === "auth-ok") {
+      reconnectAttempt = 0;
       setState("connected");
       return;
     }
@@ -92,8 +132,12 @@ export function connect(serverUrl: string, token: string, cb: RelayCallbacks) {
     ws = null;
     if (event.code === 4001) {
       setState("error", "Authentication failed");
-    } else if (currentState !== "disconnected") {
+      // Don't reconnect on auth failure
+    } else if (intentionalDisconnect) {
       setState("disconnected");
+    } else {
+      setState("disconnected");
+      scheduleReconnect();
     }
   });
 
@@ -103,6 +147,9 @@ export function connect(serverUrl: string, token: string, cb: RelayCallbacks) {
 }
 
 export function disconnect() {
+  intentionalDisconnect = true;
+  clearReconnectTimer();
+  reconnectAttempt = 0;
   if (ws) {
     ws.close();
     ws = null;

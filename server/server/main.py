@@ -6,7 +6,6 @@ from pathlib import Path
 import anyio
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
-from mcp.server.stdio import stdio_server
 
 from .tools import register_tools
 from .websocket_server import RelayConnection
@@ -37,12 +36,7 @@ def main() -> None:
     async def run_all() -> None:
         await relay.start()
         logger.info("MCP server starting on stdio...")
-        async with stdio_server() as (read_stream, write_stream):
-            await mcp._mcp_server.run(
-                read_stream,
-                write_stream,
-                mcp._mcp_server.create_initialization_options(),
-            )
+        await mcp.run_stdio_async()
 
     try:
         anyio.run(run_all)

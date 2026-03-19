@@ -95,7 +95,7 @@ Create `.mcp.json` in the project root:
 
 2. In Owlbear Rodeo, add a custom extension using `https://localhost:5173/manifest.json`
 
-3. Open the MCP Relay extension in OBR, enter `wss://localhost:9876` and your token, click Connect
+3. Open the MCP Relay extension in OBR, enter `wss://localhost:9876` and your token, click Connect. Credentials are saved to localStorage — the extension will auto-reconnect on page refresh and after connection drops.
 
 4. The MCP server starts automatically when Claude Code loads the `.mcp.json` config
 

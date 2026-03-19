@@ -164,4 +164,4 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
             }
 
         await relay.send_request("scene.items.addItems", {"items": [item]})
-        return {"name": name, "type": item_type, "position": {"x": x, "y": y}}
+        return {"id": item["id"], "name": name, "type": item_type, "position": {"x": x, "y": y}}

@@ -44,10 +44,12 @@ const handlers: Record<string, Handler> = {
       const meta = (spec.metadata as Metadata) ?? {};
       const layer = (spec.layer as Layer) ?? "CHARACTER";
 
+      const specId = spec.id as string | undefined;
+
       if (itemType === "IMAGE") {
         const img = spec.image as { url: string; width: number; height: number; mime: string };
         const grid = spec.grid as { dpi: number; offset: { x: number; y: number } };
-        const item = buildImage(
+        const builder = buildImage(
           { url: img.url, width: img.width, height: img.height, mime: img.mime },
           { dpi: grid.dpi, offset: grid.offset }
         )
@@ -57,41 +59,41 @@ const handlers: Record<string, Handler> = {
           .layer(layer)
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
-          .metadata(meta)
-          .build();
-        built.push(item);
+          .metadata(meta);
+        if (specId) builder.id(specId);
+        built.push(builder.build());
       } else if (itemType === "SHAPE") {
-        const item = buildShape()
+        const builder = buildShape()
           .position(pos)
           .name((spec.name as string) ?? "")
           .layer(layer)
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
-          .metadata(meta)
-          .build();
-        built.push(item);
+          .metadata(meta);
+        if (specId) builder.id(specId);
+        built.push(builder.build());
       } else if (itemType === "TEXT") {
-        const item = buildText()
+        const builder = buildText()
           .position(pos)
           .name((spec.name as string) ?? "")
           .plainText((spec.text as string) ?? "")
           .layer(layer)
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
-          .metadata(meta)
-          .build();
-        built.push(item);
+          .metadata(meta);
+        if (specId) builder.id(specId);
+        built.push(builder.build());
       } else if (itemType === "LABEL") {
-        const item = buildLabel()
+        const builder = buildLabel()
           .position(pos)
           .name((spec.name as string) ?? "")
           .plainText((spec.text as string) ?? "")
           .layer(layer)
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
-          .metadata(meta)
-          .build();
-        built.push(item);
+          .metadata(meta);
+        if (specId) builder.id(specId);
+        built.push(builder.build());
       } else {
         throw new Error(`Unsupported item type: ${itemType}`);
       }

@@ -41,21 +41,38 @@ export function renderUI(root: HTMLElement) {
   const serverInput = root.querySelector("#server-url") as HTMLInputElement;
   const tokenInput = root.querySelector("#auth-token") as HTMLInputElement;
 
+  // Restore saved credentials
+  const savedUrl = localStorage.getItem("obr-mcp-server-url");
+  const savedToken = localStorage.getItem("obr-mcp-auth-token");
+  if (savedUrl) serverInput.value = savedUrl;
+  if (savedToken) tokenInput.value = savedToken;
+
   btn.addEventListener("click", () => {
     const state = getState();
     if (state === "connected" || state === "connecting" || state === "authenticating") {
       disconnect();
     } else {
-      const url = serverInput.value.trim();
-      const token = tokenInput.value.trim();
-      if (!url) return;
-      if (!token) {
-        updateError("Token is required");
-        return;
-      }
-      connect(url, token, { onStateChange: updateStatus });
+      doConnect(serverInput, tokenInput);
     }
   });
+
+  // Auto-connect if we have saved credentials
+  if (savedUrl && savedToken) {
+    doConnect(serverInput, tokenInput);
+  }
+}
+
+function doConnect(serverInput: HTMLInputElement, tokenInput: HTMLInputElement) {
+  const url = serverInput.value.trim();
+  const token = tokenInput.value.trim();
+  if (!url) return;
+  if (!token) {
+    updateError("Token is required");
+    return;
+  }
+  localStorage.setItem("obr-mcp-server-url", url);
+  localStorage.setItem("obr-mcp-auth-token", token);
+  connect(url, token, { onStateChange: updateStatus });
 }
 
 function updateStatus(state: ConnectionState, error?: string) {

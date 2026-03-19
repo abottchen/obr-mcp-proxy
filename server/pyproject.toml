@@ -5,6 +5,7 @@ description = "MCP server that bridges Claude to Owlbear Rodeo via a relay exten
 requires-python = ">=3.11"
 dependencies = [
     "mcp[cli]>=1.0.0",
+    "python-dotenv>=1.0.0",
     "websockets>=14.0",
 ]
 
