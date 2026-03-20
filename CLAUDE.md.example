@@ -31,7 +31,7 @@ Token size is encoded in the item's `grid` field:
 - Huge (3x3): `grid.dpi=256, offset={x:384, y:384}` — snaps to cell centers
 - Gargantuan (4x4): `grid.dpi=256, offset={x:512, y:512}` — snaps to grid intersections
 
-The movement tools handle snap mode automatically based on token size.
+The move_item tool handles snap mode automatically based on token size.
 
 ## Reading Combat Stats (Clash Metadata)
 
