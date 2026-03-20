@@ -96,14 +96,31 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         visible: bool = True,
         locked: bool = False,
         metadata: dict | None = None,
+        # LINE-specific
+        end_x: float | None = None,
+        end_y: float | None = None,
+        # CURVE-specific
+        points: list[dict] | None = None,
+        tension: float = 0.5,
+        closed: bool = False,
+        # PATH-specific
+        commands: list[list] | None = None,
+        fill_rule: str = "evenodd",
+        # Shared style for LINE/CURVE/PATH
+        stroke_color: str = "#000000",
+        stroke_opacity: float = 1.0,
+        stroke_width: float = 5.0,
+        stroke_dash: list[float] | None = None,
+        fill_color: str = "#000000",
+        fill_opacity: float = 0.0,
     ) -> dict:
         """Add a new item to the scene.
 
         Args:
-            type: Item type (IMAGE, SHAPE, TEXT, LABEL).
+            type: Item type (IMAGE, SHAPE, TEXT, LABEL, LINE, CURVE, PATH).
             name: Display name for the item.
-            x: X pixel position.
-            y: Y pixel position.
+            x: X pixel position (also the start position for LINE).
+            y: Y pixel position (also the start position for LINE).
             layer: Layer to place on (CHARACTER, MAP, PROP, DRAWING). Defaults to CHARACTER.
             width: Image/shape width in pixels. Defaults to 256.
             height: Image/shape height in pixels. Defaults to 256.
@@ -112,6 +129,22 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
             visible: Whether the item is visible. Defaults to true.
             locked: Whether the item is locked. Defaults to false.
             metadata: Optional metadata dict.
+            end_x: LINE end X position (required for LINE).
+            end_y: LINE end Y position (required for LINE).
+            points: CURVE points as list of {x, y} dicts (required for CURVE).
+            tension: CURVE bezier tension. Defaults to 0.5.
+            closed: Whether CURVE is closed. Defaults to false.
+            commands: PATH commands as list of tuples (required for PATH).
+                Each command is a list: [command_type, ...args].
+                Command types: 0=MOVE(x,y), 1=LINE(x,y), 2=QUAD(cpX,cpY,x,y),
+                3=CONIC(cpX,cpY,x,y,weight), 4=CUBIC(cp1X,cp1Y,cp2X,cp2Y,x,y), 5=CLOSE().
+            fill_rule: PATH fill rule, "evenodd" or "nonzero". Defaults to "evenodd".
+            stroke_color: Stroke color hex for LINE/CURVE/PATH. Defaults to "#000000".
+            stroke_opacity: Stroke opacity 0-1 for LINE/CURVE/PATH. Defaults to 1.0.
+            stroke_width: Stroke width for LINE/CURVE/PATH. Defaults to 5.0.
+            stroke_dash: Dash pattern for LINE/CURVE/PATH. Defaults to solid (empty).
+            fill_color: Fill color hex for CURVE/PATH. Defaults to "#000000".
+            fill_opacity: Fill opacity 0-1 for CURVE/PATH. Defaults to 0.0 (transparent).
 
         Returns:
             Summary of the added item.
@@ -153,6 +186,13 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
             "textItemType": "LABEL",
         }
 
+        stroke_style = {
+            "strokeColor": stroke_color,
+            "strokeOpacity": stroke_opacity,
+            "strokeWidth": stroke_width,
+            "strokeDash": stroke_dash or [],
+        }
+
         if item_type == "IMAGE":
             if not image_url:
                 raise ValueError("image_url is required for IMAGE type items")
@@ -161,6 +201,36 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
                 "width": width,
                 "height": height,
                 "mime": "image/png",
+            }
+
+        elif item_type == "LINE":
+            if end_x is None or end_y is None:
+                raise ValueError("end_x and end_y are required for LINE type items")
+            item["startPosition"] = {"x": x, "y": y}
+            item["endPosition"] = {"x": end_x, "y": end_y}
+            item["style"] = stroke_style
+
+        elif item_type == "CURVE":
+            if not points:
+                raise ValueError("points are required for CURVE type items")
+            item["points"] = points
+            item["style"] = {
+                **stroke_style,
+                "fillColor": fill_color,
+                "fillOpacity": fill_opacity,
+                "tension": tension,
+                "closed": closed,
+            }
+
+        elif item_type == "PATH":
+            if not commands:
+                raise ValueError("commands are required for PATH type items")
+            item["commands"] = commands
+            item["fillRule"] = fill_rule
+            item["style"] = {
+                **stroke_style,
+                "fillColor": fill_color,
+                "fillOpacity": fill_opacity,
             }
 
         await relay.send_request("scene.items.addItems", {"items": [item]})

@@ -1,11 +1,15 @@
 import OBR, {
+  buildCurve,
   buildImage,
   buildLabel,
+  buildLine,
+  buildPath,
   buildShape,
   buildText,
   type Item,
   type Layer,
   type Metadata,
+  type PathCommand,
   type Vector2,
 } from "@owlbear-rodeo/sdk";
 
@@ -92,6 +96,72 @@ const handlers: Record<string, Handler> = {
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
           .metadata(meta);
+        if (specId) builder.id(specId);
+        built.push(builder.build());
+      } else if (itemType === "LINE") {
+        const startPos = (spec.startPosition as Vector2) ?? pos;
+        const endPos = spec.endPosition as Vector2;
+        const style = spec.style as Record<string, unknown> | undefined;
+        const builder = buildLine()
+          .position(pos)
+          .startPosition(startPos)
+          .endPosition(endPos)
+          .name((spec.name as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta);
+        if (style) {
+          if (style.strokeColor != null) builder.strokeColor(style.strokeColor as string);
+          if (style.strokeOpacity != null) builder.strokeOpacity(style.strokeOpacity as number);
+          if (style.strokeWidth != null) builder.strokeWidth(style.strokeWidth as number);
+          if (style.strokeDash != null) builder.strokeDash(style.strokeDash as number[]);
+        }
+        if (specId) builder.id(specId);
+        built.push(builder.build());
+      } else if (itemType === "CURVE") {
+        const points = spec.points as Vector2[];
+        const style = spec.style as Record<string, unknown> | undefined;
+        const builder = buildCurve()
+          .position(pos)
+          .points(points)
+          .name((spec.name as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta);
+        if (style) {
+          if (style.fillColor != null) builder.fillColor(style.fillColor as string);
+          if (style.fillOpacity != null) builder.fillOpacity(style.fillOpacity as number);
+          if (style.strokeColor != null) builder.strokeColor(style.strokeColor as string);
+          if (style.strokeOpacity != null) builder.strokeOpacity(style.strokeOpacity as number);
+          if (style.strokeWidth != null) builder.strokeWidth(style.strokeWidth as number);
+          if (style.strokeDash != null) builder.strokeDash(style.strokeDash as number[]);
+          if (style.tension != null) builder.tension(style.tension as number);
+          if (style.closed != null) builder.closed(style.closed as boolean);
+        }
+        if (specId) builder.id(specId);
+        built.push(builder.build());
+      } else if (itemType === "PATH") {
+        const commands = spec.commands as PathCommand[];
+        const style = spec.style as Record<string, unknown> | undefined;
+        const builder = buildPath()
+          .position(pos)
+          .commands(commands)
+          .name((spec.name as string) ?? "")
+          .layer(layer)
+          .visible((spec.visible as boolean) ?? true)
+          .locked((spec.locked as boolean) ?? false)
+          .metadata(meta);
+        if (spec.fillRule != null) builder.fillRule(spec.fillRule as string);
+        if (style) {
+          if (style.fillColor != null) builder.fillColor(style.fillColor as string);
+          if (style.fillOpacity != null) builder.fillOpacity(style.fillOpacity as number);
+          if (style.strokeColor != null) builder.strokeColor(style.strokeColor as string);
+          if (style.strokeOpacity != null) builder.strokeOpacity(style.strokeOpacity as number);
+          if (style.strokeWidth != null) builder.strokeWidth(style.strokeWidth as number);
+          if (style.strokeDash != null) builder.strokeDash(style.strokeDash as number[]);
+        }
         if (specId) builder.id(specId);
         built.push(builder.build());
       } else {

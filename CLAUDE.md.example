@@ -69,12 +69,12 @@ find_items_near(origin=name, radius_feet=30, layer="CHARACTER") → who's nearby
 
 **b. Move if needed**
 ```
-move_toward(item_id, target_id, adjacent=true)  → move next to target
-move_direction(item_id, "north", cells=4)        → move in a direction
-move_item(item_id, x, y)                         → move to exact position
+move_item(item_id, x, y)  → move to exact pixel position (snaps to grid by default)
 ```
-Note: `move_toward adjacent` accounts for token sizes. Large tokens need more space.
-The movement tools do NOT check for collision with other tokens — be aware of the battlefield.
+To move toward a target or in a direction, compute the destination yourself using
+`get_grid` (for DPI/scale) and the target's position. Use `get_item_metadata` to
+read `clash_speedWalk` for speed-limited movement.
+Movement does NOT check for collision with other tokens — be aware of the battlefield.
 
 **c. Get attack info**
 ```
@@ -146,7 +146,8 @@ Spell actions follow similar patterns:
 
 - Each creature has a walking speed in `clash_speedWalk` (in feet)
 - One grid cell = scale multiplier feet (usually 5ft)
-- `move_direction(id, "north", use_speed=true)` moves the full walking speed
-- `move_toward(id, target_id, adjacent=true)` stops at the edge of the target's space
-- Creatures cannot move through enemy spaces (the tools don't enforce this — be aware)
+- Use `get_grid` to get the DPI and scale, then compute pixel offsets: `cells * dpi` pixels per cell
+- To move toward a target, calculate direction from positions and clamp to walking speed
+- To stop adjacent to a target, account for both tokens' sizes (see Token Sizes above)
+- Creatures cannot move through enemy spaces — be aware of the battlefield
 - Disengage: creature uses its action to avoid opportunity attacks, then moves normally

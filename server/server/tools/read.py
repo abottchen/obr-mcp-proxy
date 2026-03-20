@@ -125,6 +125,8 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
             fields: Optional list of metadata field names to return. Accepts short
                 names without the Clash prefix (e.g. 'clash_currentHP' instead of
                 'com.battle-system.clash/clash_currentHP'). If omitted, returns all metadata.
+                Common Clash fields: clash_currentHP, clash_maxHP, clash_armorClass,
+                clash_speedWalk, clash_standardActions, clash_bonusActions.
 
         Returns:
             The item's metadata dict, filtered to requested fields if specified.

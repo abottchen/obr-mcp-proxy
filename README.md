@@ -125,7 +125,7 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 | `update_item` | Update item properties via arbitrary fields dict |
 | `update_item_metadata` | Merge metadata on an item |
 | `update_scene_metadata` | Merge scene-level metadata |
-| `add_item` | Place a new item (IMAGE, SHAPE, TEXT, LABEL) |
+| `add_item` | Place a new item (IMAGE, SHAPE, TEXT, LABEL, LINE, CURVE, PATH) |
 | `delete_item` | Remove an item from the scene |
 
 ### Movement
@@ -133,8 +133,6 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 | Tool | Description |
 |------|-------------|
 | `move_item` | Move to absolute pixel position with optional grid snap |
-| `move_toward` | Move toward another item (N cells or adjacent) |
-| `move_direction` | Move in a cardinal/ordinal direction (N cells or by walking speed) |
 
 ### Combat
 
