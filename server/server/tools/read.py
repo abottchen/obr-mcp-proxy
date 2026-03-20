@@ -2,9 +2,9 @@ import asyncio
 
 from mcp.server.fastmcp import FastMCP
 
-from ..grid import euclidean_distance, fetch_grid_info, pixels_to_feet
+from ..grid import euclidean_distance, fetch_grid_info
 from ..constants import CLASH_PREFIX
-from ..items import resolve_item
+from ..items import get_item_by_id, resolve_item
 from ..websocket_server import RelayConnection
 
 
@@ -228,26 +228,79 @@ def register_read_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         if not isinstance(items, list):
             return []
 
-        radius_pixels = radius_feet / grid.scale_multiplier * grid.dpi
+        # Generous Euclidean pre-filter (2x radius) to avoid sending a
+        # grid-distance request for every item on the map.
+        prefilter_pixels = (radius_feet / grid.scale_multiplier * grid.dpi) * 2
+        radius_cells = radius_feet / grid.scale_multiplier
 
-        results = []
+        candidates = []
         for item in items:
             if origin and item.get("id") == origin_item.get("id"):
                 continue
-
-            if layer:
-                if item.get("layer") != layer.upper():
-                    continue
-
+            if layer and item.get("layer") != layer.upper():
+                continue
             pos = item.get("position")
             if not pos:
                 continue
+            if euclidean_distance(center, pos) <= prefilter_pixels:
+                candidates.append(item)
 
-            dist_px = euclidean_distance(center, pos)
-            if dist_px <= radius_pixels:
+        # Use OBR's grid distance for accurate measurement (respects
+        # hex grids, Chebyshev diagonals, etc.)
+        async def measure(item: dict) -> tuple[dict, float]:
+            dist_cells = await relay.send_request(
+                "scene.grid.getDistance",
+                {"from": center, "to": item["position"]},
+            )
+            return item, float(dist_cells)
+
+        measured = await asyncio.gather(*(measure(c) for c in candidates))
+
+        results = []
+        for item, dist_cells in measured:
+            if dist_cells <= radius_cells:
                 item_copy = _strip_metadata(item)
-                item_copy["distance_feet"] = round(pixels_to_feet(dist_px, grid), 1)
+                item_copy["distance_feet"] = round(dist_cells * grid.scale_multiplier, 1)
                 results.append(item_copy)
 
         results.sort(key=lambda i: i["distance_feet"])
         return results
+
+    @mcp.tool()
+    async def get_distance_between(
+        item_a_id: str,
+        item_b_id: str,
+    ) -> dict:
+        """Get the grid-accurate distance between two items.
+
+        Uses OBR's grid distance calculation, which respects the scene's
+        measurement mode (Chebyshev for D&D 5e diagonal movement, hex, etc).
+
+        Args:
+            item_a_id: UUID of the first item. Use get_items or get_item to find the ID first.
+            item_b_id: UUID of the second item. Use get_items or get_item to find the ID first.
+
+        Returns:
+            Dict with both item names/IDs, distance in feet, and distance in cells.
+        """
+        items = await relay.send_request("scene.items.getItems")
+        if not isinstance(items, list):
+            items = []
+
+        a, b, grid = await asyncio.gather(
+            get_item_by_id(relay, item_a_id, items=items),
+            get_item_by_id(relay, item_b_id, items=items),
+            fetch_grid_info(relay),
+        )
+
+        dist_cells = float(await relay.send_request(
+            "scene.grid.getDistance",
+            {"from": a["position"], "to": b["position"]},
+        ))
+
+        return {
+            "item_a": {"id": a["id"], "name": a.get("name", "")},
+            "item_b": {"id": b["id"], "name": b.get("name", "")},
+            "distance_feet": round(dist_cells * grid.scale_multiplier, 1),
+            "distance_cells": round(dist_cells, 1),
+        }

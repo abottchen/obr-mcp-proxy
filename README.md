@@ -121,6 +121,7 @@ The `.mcp.json` in the project root points Claude Code at the running MCP server
 | `get_room_metadata` | Get room-level metadata (persists across scenes) |
 | `get_grid` | Get grid settings (DPI, scale, type, measurement) |
 | `find_items_near` | Find items within a radius of a point or item, with distances |
+| `get_distance_between` | Get grid-accurate distance between two items (respects measurement mode) |
 
 ### Scene Manipulation
 

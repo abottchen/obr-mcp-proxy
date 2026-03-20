@@ -22,6 +22,7 @@ This keeps combat logs visible only to the GM, not broadcast to all players.
 1. Call `get_items(layer="CHARACTER")` to see all tokens with positions
 2. Call `get_grid` to understand the grid (DPI, scale, type)
 3. Use `find_items_near` to understand spatial relationships between tokens
+4. Use `get_distance_between` for exact distance between two specific tokens
 
 ## Token Sizes
 
@@ -65,6 +66,7 @@ get_item_metadata(id, ["clash_initiative"]) for each → sort by initiative desc
 ```
 get_item(name) → current position
 find_items_near(origin=name, radius_feet=30, layer="CHARACTER") → who's nearby
+get_distance_between(item_a, item_b) → exact distance to a specific target
 ```
 
 **b. Move if needed**
@@ -146,7 +148,8 @@ Spell actions follow similar patterns:
 
 - Each creature has a walking speed in `clash_speedWalk` (in feet)
 - One grid cell = scale multiplier feet (usually 5ft)
-- Use `get_grid` to get the DPI and scale, then compute pixel offsets: `cells * dpi` pixels per cell
+- Use `get_distance_between` to check exact distance to a target (respects grid measurement mode)
+- Use `get_grid` to get the DPI and scale for computing pixel offsets: `cells * dpi` pixels per cell
 - To move toward a target, calculate direction from positions and clamp to walking speed
 - To stop adjacent to a target, account for both tokens' sizes (see Token Sizes above)
 - Creatures cannot move through enemy spaces — be aware of the battlefield
