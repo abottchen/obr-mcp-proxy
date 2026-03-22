@@ -191,7 +191,9 @@ async function exportScene(btn: HTMLButtonElement) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `scene-export-${new Date().toISOString().slice(0, 10)}.json`;
+    const mapItem = items.find((i) => i.layer === "MAP" && i.type === "IMAGE");
+    const sceneName = mapItem?.name?.replace(/[^a-zA-Z0-9_-]/g, "-") || "scene";
+    a.download = `${sceneName}.json`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
