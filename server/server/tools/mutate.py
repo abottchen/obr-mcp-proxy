@@ -61,6 +61,19 @@ def register_mutate_tools(mcp: FastMCP, relay: RelayConnection) -> None:
         return {"metadata_keys_set": list(metadata.keys())}
 
     @mcp.tool()
+    async def update_room_metadata(metadata: dict) -> dict:
+        """Update room-level metadata (merged with existing, persists across scenes).
+
+        Args:
+            metadata: Dict of metadata keys to set on the room.
+
+        Returns:
+            The metadata keys that were set.
+        """
+        await relay.send_request("room.setMetadata", {"metadata": metadata})
+        return {"metadata_keys_set": list(metadata.keys())}
+
+    @mcp.tool()
     async def delete_item(item_id: str) -> dict:
         """Remove an item from the scene.
 

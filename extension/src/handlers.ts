@@ -225,6 +225,10 @@ const handlers: Record<string, Handler> = {
     return await OBR.room.getMetadata();
   },
 
+  "room.setMetadata": async (params) => {
+    await OBR.room.setMetadata(params.metadata as Metadata);
+  },
+
   // Player
   "player.getId": async () => {
     return await OBR.player.getId();
