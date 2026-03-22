@@ -67,6 +67,7 @@ const handlers: Record<string, Handler> = {
         if (specId) builder.id(specId);
         built.push(builder.build());
       } else if (itemType === "SHAPE") {
+        const style = spec.style as Record<string, unknown> | undefined;
         const builder = buildShape()
           .position(pos)
           .name((spec.name as string) ?? "")
@@ -74,9 +75,21 @@ const handlers: Record<string, Handler> = {
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
           .metadata(meta);
+        if (spec.shapeType != null) builder.shapeType(spec.shapeType as "RECTANGLE" | "CIRCLE" | "TRIANGLE" | "HEXAGON");
+        if (spec.width != null) builder.width(spec.width as number);
+        if (spec.height != null) builder.height(spec.height as number);
+        if (style) {
+          if (style.fillColor != null) builder.fillColor(style.fillColor as string);
+          if (style.fillOpacity != null) builder.fillOpacity(style.fillOpacity as number);
+          if (style.strokeColor != null) builder.strokeColor(style.strokeColor as string);
+          if (style.strokeOpacity != null) builder.strokeOpacity(style.strokeOpacity as number);
+          if (style.strokeWidth != null) builder.strokeWidth(style.strokeWidth as number);
+          if (style.strokeDash != null) builder.strokeDash(style.strokeDash as number[]);
+        }
         if (specId) builder.id(specId);
         built.push(builder.build());
       } else if (itemType === "TEXT") {
+        const textStyle = spec.textStyle as Record<string, unknown> | undefined;
         const builder = buildText()
           .position(pos)
           .name((spec.name as string) ?? "")
@@ -85,9 +98,27 @@ const handlers: Record<string, Handler> = {
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
           .metadata(meta);
+        if (textStyle) {
+          if (textStyle.fontFamily != null) builder.fontFamily(textStyle.fontFamily as string);
+          if (textStyle.fontSize != null) builder.fontSize(textStyle.fontSize as number);
+          if (textStyle.fontWeight != null) builder.fontWeight(textStyle.fontWeight as number);
+          if (textStyle.textAlign != null) builder.textAlign(textStyle.textAlign as "LEFT" | "CENTER" | "RIGHT");
+          if (textStyle.textAlignVertical != null) builder.textAlignVertical(textStyle.textAlignVertical as "BOTTOM" | "MIDDLE" | "TOP");
+          if (textStyle.fillColor != null) builder.fillColor(textStyle.fillColor as string);
+          if (textStyle.fillOpacity != null) builder.fillOpacity(textStyle.fillOpacity as number);
+          if (textStyle.strokeColor != null) builder.strokeColor(textStyle.strokeColor as string);
+          if (textStyle.strokeOpacity != null) builder.strokeOpacity(textStyle.strokeOpacity as number);
+          if (textStyle.strokeWidth != null) builder.strokeWidth(textStyle.strokeWidth as number);
+          if (textStyle.lineHeight != null) builder.lineHeight(textStyle.lineHeight as number);
+          if (textStyle.padding != null) builder.padding(textStyle.padding as number);
+          if (textStyle.width != null) builder.width(textStyle.width as number | "AUTO");
+          if (textStyle.height != null) builder.height(textStyle.height as number | "AUTO");
+        }
         if (specId) builder.id(specId);
         built.push(builder.build());
       } else if (itemType === "LABEL") {
+        const textStyle = spec.textStyle as Record<string, unknown> | undefined;
+        const labelStyle = spec.labelStyle as Record<string, unknown> | undefined;
         const builder = buildLabel()
           .position(pos)
           .name((spec.name as string) ?? "")
@@ -96,6 +127,32 @@ const handlers: Record<string, Handler> = {
           .visible((spec.visible as boolean) ?? true)
           .locked((spec.locked as boolean) ?? false)
           .metadata(meta);
+        if (textStyle) {
+          if (textStyle.fontFamily != null) builder.fontFamily(textStyle.fontFamily as string);
+          if (textStyle.fontSize != null) builder.fontSize(textStyle.fontSize as number);
+          if (textStyle.fontWeight != null) builder.fontWeight(textStyle.fontWeight as number);
+          if (textStyle.textAlign != null) builder.textAlign(textStyle.textAlign as "LEFT" | "CENTER" | "RIGHT");
+          if (textStyle.textAlignVertical != null) builder.textAlignVertical(textStyle.textAlignVertical as "BOTTOM" | "MIDDLE" | "TOP");
+          if (textStyle.fillColor != null) builder.fillColor(textStyle.fillColor as string);
+          if (textStyle.fillOpacity != null) builder.fillOpacity(textStyle.fillOpacity as number);
+          if (textStyle.strokeColor != null) builder.strokeColor(textStyle.strokeColor as string);
+          if (textStyle.strokeOpacity != null) builder.strokeOpacity(textStyle.strokeOpacity as number);
+          if (textStyle.strokeWidth != null) builder.strokeWidth(textStyle.strokeWidth as number);
+          if (textStyle.lineHeight != null) builder.lineHeight(textStyle.lineHeight as number);
+          if (textStyle.padding != null) builder.padding(textStyle.padding as number);
+          if (textStyle.width != null) builder.width(textStyle.width as number | "AUTO");
+          if (textStyle.height != null) builder.height(textStyle.height as number | "AUTO");
+        }
+        if (labelStyle) {
+          if (labelStyle.backgroundColor != null) builder.backgroundColor(labelStyle.backgroundColor as string);
+          if (labelStyle.backgroundOpacity != null) builder.backgroundOpacity(labelStyle.backgroundOpacity as number);
+          if (labelStyle.cornerRadius != null) builder.cornerRadius(labelStyle.cornerRadius as number);
+          if (labelStyle.pointerWidth != null) builder.pointerWidth(labelStyle.pointerWidth as number);
+          if (labelStyle.pointerHeight != null) builder.pointerHeight(labelStyle.pointerHeight as number);
+          if (labelStyle.pointerDirection != null) builder.pointerDirection(labelStyle.pointerDirection as "UP" | "DOWN" | "LEFT" | "RIGHT");
+          if (labelStyle.maxViewScale != null) builder.maxViewScale(labelStyle.maxViewScale as number);
+          if (labelStyle.minViewScale != null) builder.minViewScale(labelStyle.minViewScale as number);
+        }
         if (specId) builder.id(specId);
         built.push(builder.build());
       } else if (itemType === "LINE") {
