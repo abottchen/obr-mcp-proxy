@@ -36,7 +36,7 @@ TypeScript/Vite browser extension loaded into Owlbear Rodeo. Connects to the loc
 
 - Python 3.11+
 - Node.js 18+
-- [mkcert](https://github.com/nicmccabe/mkcert) for TLS certificates
+- [mkcert](https://github.com/FiloSottile/mkcert) for TLS certificates
 
 ### TLS Certificates
 
@@ -94,16 +94,27 @@ The `.mcp.json` in the project root points Claude Code at the running MCP server
    cd server && python -m server.main
    ```
 
-2. Start the extension dev server:
-   ```bash
-   cd extension && npx vite
-   ```
+2. In Owlbear Rodeo, add a custom extension. Two options:
+   - **Hosted (recommended):** `https://abottchen.github.io/obr-mcp-proxy/manifest.json` — uses the Pages-hosted build, no local dev server needed.
+   - **Local dev:** `https://localhost:5173/manifest.json` — requires the vite dev server to be running. Use this only when modifying the extension itself:
+     ```bash
+     cd extension && npx vite
+     ```
 
-3. In Owlbear Rodeo, add a custom extension using `https://localhost:5173/manifest.json`
+   The extension UI is gated to the GM role; non-GM players who load the extension will see a notice that it is GM-only.
 
-4. Open the MCP Relay extension in OBR, enter `wss://localhost:9876` and your token, click Connect. Credentials are saved to localStorage — the extension will auto-reconnect on page refresh and after connection drops.
+3. Open the MCP Relay extension in OBR, enter `wss://localhost:9876` and your token, click Connect. Credentials are saved to localStorage — the extension will auto-reconnect on page refresh and after connection drops.
 
-5. Claude Code will connect to the MCP server when it loads the `.mcp.json` config. Multiple Claude Code sessions can connect simultaneously.
+4. Claude Code will connect to the MCP server when it loads the `.mcp.json` config. Multiple Claude Code sessions can connect simultaneously.
+
+### Scene Export / Import
+
+Once connected, the extension UI exposes two buttons:
+
+- **Export Scene** — downloads a JSON file containing all scene items, scene metadata, and room metadata. The filename is derived from the lowest-zIndex `MAP` image in the scene.
+- **Import Scene** — loads a previously exported JSON file. Deletes all existing items in the current scene, then restores items and scene metadata from the file. Room metadata is only restored if the "Include room metadata on import" checkbox is ticked.
+
+Export/import runs entirely in the extension — it does not go through the MCP server.
 
 ## MCP Tools
 
@@ -132,6 +143,7 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 | `update_item` | Update item properties via arbitrary fields dict |
 | `update_item_metadata` | Merge metadata on an item |
 | `update_scene_metadata` | Merge scene-level metadata |
+| `update_room_metadata` | Merge room-level metadata (persists across scenes) |
 | `add_item` | Place a new item (IMAGE, SHAPE, TEXT, LABEL, LINE, CURVE, PATH) |
 | `delete_item` | Remove an item from the scene |
 
