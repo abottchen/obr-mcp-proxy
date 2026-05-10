@@ -4,21 +4,36 @@ An MCP server that allows Claude to read and manipulate Owlbear Rodeo scenes via
 
 ## Architecture
 
-```
-Claude Code session #1 ──┐
-                          ├── HTTP (MCP protocol) ──→ MCP Server (Python)
-Claude Code session #2 ──┘                             │
-                                                       │ WSS on localhost
-                                                       v
-                                                OBR Relay Extension
-                                                  (GM's browser)
-                                                       │
-                                                       │ OBR SDK calls
-                                                       v
-                                                Owlbear Rodeo scene state
+```mermaid
+flowchart TD
+    C1["Claude Code<br/>session #1"]
+    C2["Claude Code<br/>session #2"]
+
+    subgraph Local["GM's machine (localhost)"]
+        direction TB
+        Server["MCP Server (Python)<br/>FastMCP + WSS relay"]
+        subgraph Browser["GM's browser (HTTPS)"]
+            Ext["OBR Relay Extension<br/>(loaded into Owlbear Rodeo)"]
+        end
+    end
+
+    OBR["Owlbear Rodeo<br/>scene state"]
+
+    C1 -->|"HTTP MCP<br/>127.0.0.1:3000/mcp"| Server
+    C2 -->|"HTTP MCP<br/>127.0.0.1:3000/mcp"| Server
+    Server <-->|"WSS + shared-token auth<br/>localhost:9876<br/>(TLS via mkcert)"| Ext
+    Ext <-->|"OBR SDK<br/>(in-page postMessage)"| OBR
 ```
 
-The MCP server is a long-lived HTTP server that accepts connections from multiple Claude Code sessions simultaneously. The extension is a thin relay — it executes OBR SDK calls and returns results. All game logic lives in the MCP server.
+**Networking notes:**
+
+- **MCP transport** — Claude Code talks to the server over plain HTTP on `127.0.0.1:3000` using the streamable-HTTP MCP transport. Multiple sessions can connect concurrently.
+- **WSS relay** — The server hosts a WebSocket Secure endpoint on `localhost:9876`. TLS is required because OBR runs over HTTPS and browsers block mixed-content (`ws://`) connections from secure pages. Certificates are issued locally via `mkcert`.
+- **Authentication** — The extension presents a shared secret (`OBR_MCP_TOKEN`) on connect. The server enforces it before accepting messages.
+- **Direction of traffic** — Claude → Server requests are pushed down the WSS channel to the extension, which executes them against the OBR SDK and returns results back over the same socket. The relay limits in-flight requests to 3 with a 10s per-request timeout.
+- **Resilience** — The extension reconnects with exponential backoff if the socket drops, and persists credentials in `localStorage` to survive page reloads.
+
+The extension is a thin relay — it executes OBR SDK calls and returns results. All game logic lives in the MCP server.
 
 ## Components
 
@@ -28,7 +43,9 @@ Python server using the `mcp` SDK with streamable HTTP transport. Exposes an MCP
 
 ### OBR Relay Extension (`extension/`)
 
-TypeScript/Vite browser extension loaded into Owlbear Rodeo. Connects to the local WSS server, authenticates with a shared token, and proxies SDK calls.
+TypeScript/Vite browser extension loaded into Owlbear Rodeo. Connects to the local WSS server, authenticates with a shared token, and proxies SDK calls. The extension UI is only rendered for the GM — players see an empty popover.
+
+A pre-built copy is hosted on GitHub Pages at `https://abottchen.github.io/obr-mcp-proxy/manifest.json`, so non-developers can install the extension without running the Vite dev server. Local development still uses `https://localhost:5173/manifest.json`.
 
 ## Setup
 
@@ -81,11 +98,13 @@ The `.mcp.json` in the project root points Claude Code at the running MCP server
   "mcpServers": {
     "obr-mcp-server": {
       "type": "http",
-      "url": "http://127.0.0.1:3000/mcp"
+      "url": "http://127.0.0.1:3001/mcp"
     }
   }
 }
 ```
+
+The default HTTP MCP port is `3000`. The example above uses `3001` to match the committed `.mcp.json`; if you stick with the default, also set `OBR_MCP_HTTP_PORT=3001` in `.env` (or change the URL to `:3000`).
 
 ## Usage
 
