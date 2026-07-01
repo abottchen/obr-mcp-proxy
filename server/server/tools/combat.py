@@ -1,26 +1,42 @@
 from mcp.server.fastmcp import FastMCP
 
-from ..dice import parse_and_roll
 from ..websocket_server import RelayConnection
+
+ROLL_TIMEOUT = 30.0
 
 
 def register_combat_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     @mcp.tool()
-    async def roll_dice(
-        expression: str,
-        mode: str | None = None,
-    ) -> dict:
-        """Roll dice using standard D&D notation.
+    async def roll_dice(notation: str) -> dict:
+        """Roll dice in the shared 3D dice tray (dicex) and return the result.
+
+        Triggers a real physics roll in the GM's dicex extension via the Dice+
+        integration. Rolls are GM-hidden.
+
+        Notation (dicex format):
+          - Terms joined by + / - ; whitespace ignored. Multiple pools allowed,
+            e.g. "2d6+1d8+3".
+          - NdS: N dice with S sides. Valid sides: 4, 6, 8, 10, 12, 20, 100.
+          - Modifiers: integers, e.g. "+3", "-2". Dice cannot be subtracted.
+          - Keep/drop (suffix on a pool): "khN"/"kN" keep highest N,
+            "klN" keep lowest N, "dN" drop lowest N.
+          - Exploding (suffix, before keep/drop): "!" on max, "!>N" on >= N,
+            "!N" on exactly N.
+          Examples: "1d20", "2d6+3", "2d20kh1+5" (advantage), "2d20kl1"
+          (disadvantage), "4d6k3" (ability score), "3d6!" (exploding).
 
         Args:
-            expression: Dice notation (e.g. '1d20', '2d6+3', '4d6-1', '1d100').
-            mode: Optional 'advantage' or 'disadvantage' for 1d20 rolls.
+            notation: A dicex dice-notation string (see above).
 
         Returns:
-            Dict with expression, individual rolls, modifier, and total.
-            For advantage/disadvantage: includes both rolls, which was chosen, and mode.
+            On success: {notation, total, summary, groups: [{description,
+            diceType, total, dice: [{value, kept}]}]}.
+            On failure: {error, notation} — invalid notation, or dicex not
+            responding (extension missing / GM tab inactive).
         """
-        if mode and mode not in ("advantage", "disadvantage"):
-            return {"error": f"Unknown mode: {mode}. Use 'advantage' or 'disadvantage'"}
-
-        return parse_and_roll(expression, mode)
+        try:
+            return await relay.send_request(
+                "dice.roll", {"notation": notation}, timeout=ROLL_TIMEOUT
+            )
+        except (TimeoutError, ConnectionError, RuntimeError) as e:
+            return {"error": str(e), "notation": notation}
