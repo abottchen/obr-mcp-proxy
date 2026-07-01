@@ -46,7 +46,10 @@ class RelayConnection:
             await self._server.wait_closed()
         self._reject_all_pending("Server shutting down")
 
-    async def send_request(self, method: str, params: dict | None = None) -> dict:
+    async def send_request(
+        self, method: str, params: dict | None = None, timeout: float | None = None
+    ) -> dict:
+        request_timeout = timeout if timeout is not None else REQUEST_TIMEOUT
         async with self._semaphore:
             if not self.connected:
                 raise ConnectionError("Relay extension is not connected")
@@ -64,11 +67,11 @@ class RelayConnection:
 
             try:
                 await self._ws.send(json.dumps(message))  # type: ignore[union-attr]
-                return await asyncio.wait_for(future, timeout=REQUEST_TIMEOUT)
+                return await asyncio.wait_for(future, timeout=request_timeout)
             except asyncio.TimeoutError:
                 self._pending.pop(request_id, None)
                 raise TimeoutError(
-                    f"Relay did not respond to {method} within {REQUEST_TIMEOUT}s"
+                    f"Relay did not respond to {method} within {request_timeout}s"
                 )
             except Exception:
                 self._pending.pop(request_id, None)
