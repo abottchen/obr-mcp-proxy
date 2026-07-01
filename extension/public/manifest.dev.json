@@ -1,0 +1,15 @@
+{
+  "name": "MCP Relay (DEV — localhost:5173)",
+  "description": "DEV build served from the local vite server. Bridges the MCP server to the OBR SDK. Use only for local testing.",
+  "version": "1.0.0-dev",
+  "manifest_version": 1,
+  "author": "Adam Bottchen",
+  "icon": "https://localhost:5173/icon.svg",
+  "action": {
+    "title": "MCP Relay (DEV)",
+    "icon": "https://localhost:5173/icon.svg",
+    "popover": "https://localhost:5173/index.html",
+    "height": 300,
+    "width": 300
+  }
+}
