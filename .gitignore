@@ -8,3 +8,6 @@ __pycache__/
 .claude/
 .mcp.json
 .env
+
+# Local-only planning/spec docs (kept out of version control)
+docs/superpowers/

@@ -12,6 +12,7 @@ import OBR, {
   type PathCommand,
   type Vector2,
 } from "@owlbear-rodeo/sdk";
+import { rollViaDicePlus } from "./dicePlus";
 
 type Handler = (params: Record<string, unknown>) => Promise<unknown>;
 
@@ -302,6 +303,11 @@ const handlers: Record<string, Handler> = {
   // Party
   "party.getPlayers": async () => {
     return await OBR.party.getPlayers();
+  },
+
+  // Dice — roll via the dicex extension's Dice+ integration
+  "dice.roll": async (params) => {
+    return await rollViaDicePlus(params.notation as string);
   },
 };
 
