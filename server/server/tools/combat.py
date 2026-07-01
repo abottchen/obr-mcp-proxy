@@ -14,6 +14,16 @@ def register_combat_tools(mcp: FastMCP, relay: RelayConnection) -> None:
     # phantom rolls when multiple requests queue up behind dicex.
     dice_lock = asyncio.Lock()
 
+    async def _roll(notation: str) -> dict:
+        """Trigger one dicex roll, returning its result or an {error} dict."""
+        try:
+            async with dice_lock:
+                return await relay.send_request(
+                    "dice.roll", {"notation": notation}, timeout=ROLL_TIMEOUT
+                )
+        except (TimeoutError, ConnectionError, RuntimeError) as e:
+            return {"error": str(e), "notation": notation}
+
     @mcp.tool()
     async def roll_dice(notation: str) -> dict:
         """Roll dice in the shared 3D dice tray (dicex) and return the result.
@@ -42,10 +52,25 @@ def register_combat_tools(mcp: FastMCP, relay: RelayConnection) -> None:
             On failure: {error, notation} — invalid notation, or dicex not
             responding (extension missing / GM tab inactive).
         """
-        try:
-            async with dice_lock:
-                return await relay.send_request(
-                    "dice.roll", {"notation": notation}, timeout=ROLL_TIMEOUT
-                )
-        except (TimeoutError, ConnectionError, RuntimeError) as e:
-            return {"error": str(e), "notation": notation}
+        return await _roll(notation)
+
+    @mcp.tool()
+    async def roll_dice_batch(notations: list[str]) -> dict:
+        """Roll several dice notations in one call and return all results.
+
+        Each notation is rolled in the shared 3D dicex tray, one after another
+        (dicex animates one roll at a time, so the batch runs serially). Results
+        preserve input order, and a bad notation does not abort the batch — its
+        slot holds an {error} dict instead. See roll_dice for the full notation
+        reference and the per-roll result shape.
+
+        Args:
+            notations: A list of dicex dice-notation strings (see roll_dice).
+
+        Returns:
+            {"results": [<per-notation result>, ...]} in input order. Each entry
+            is either {notation, total, summary, groups} on success or
+            {error, notation} on failure.
+        """
+        results = [await _roll(notation) for notation in notations]
+        return {"results": results}

@@ -36,6 +36,12 @@ def _get_roll_dice(relay):
     return mcp.tools["roll_dice"]
 
 
+def _get_tool(relay, name):
+    mcp = _CaptureMCP()
+    register_combat_tools(mcp, relay)
+    return mcp.tools[name]
+
+
 async def test_roll_dice_returns_dicex_result_and_calls_relay_correctly():
     relay = _FakeRelay(
         result={"notation": "1d6", "total": 4, "summary": "4 = 4", "groups": []}
@@ -95,3 +101,52 @@ async def test_roll_dice_serializes_concurrent_calls():
     r1, r2 = await asyncio.gather(t1, t2)
     assert started == ["1d6", "1d8"]
     assert r1["total"] == 1 and r2["total"] == 1
+
+
+async def test_roll_dice_batch_rolls_each_notation_in_order():
+    class _EchoRelay:
+        def __init__(self) -> None:
+            self.calls: list = []
+
+        async def send_request(self, method, params=None, timeout=None):
+            self.calls.append((method, params, timeout))
+            n = params["notation"]
+            return {"notation": n, "total": len(n), "summary": "", "groups": []}
+
+    relay = _EchoRelay()
+    batch = _get_tool(relay, "roll_dice_batch")
+
+    out = await batch(["1d6", "2d20kh1", "1d8+2"])
+
+    assert [r["notation"] for r in out["results"]] == ["1d6", "2d20kh1", "1d8+2"]
+    assert [c[0] for c in relay.calls] == ["dice.roll", "dice.roll", "dice.roll"]
+    assert relay.calls[0] == ("dice.roll", {"notation": "1d6"}, 30)
+
+
+async def test_roll_dice_batch_reports_per_notation_errors_without_aborting():
+    class _SelectiveRelay:
+        async def send_request(self, method, params=None, timeout=None):
+            n = params["notation"]
+            if n == "garbage":
+                raise RuntimeError("Invalid dice notation: garbage")
+            return {"notation": n, "total": 7, "summary": "7 = 7", "groups": []}
+
+    relay = _SelectiveRelay()
+    batch = _get_tool(relay, "roll_dice_batch")
+
+    out = await batch(["1d20", "garbage", "2d6"])
+
+    results = out["results"]
+    assert results[0]["total"] == 7
+    assert results[1] == {"error": "Invalid dice notation: garbage", "notation": "garbage"}
+    assert results[2]["total"] == 7  # roll after the error still ran
+
+
+async def test_roll_dice_batch_empty_list_returns_no_results():
+    relay = _FakeRelay(result={"notation": "x", "total": 1})
+    batch = _get_tool(relay, "roll_dice_batch")
+
+    out = await batch([])
+
+    assert out == {"results": []}
+    assert relay.calls == []

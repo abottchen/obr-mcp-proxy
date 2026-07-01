@@ -177,6 +177,7 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 | Tool | Description |
 |------|-------------|
 | `roll_dice` | Roll dice in the dicex 3D tray (e.g. `2d6+3`; advantage `2d20kh1`, keep/drop, exploding) and return the result |
+| `roll_dice_batch` | Roll a list of notations in one call (rolled serially); returns per-notation results, bad notations reported inline |
 
 ### Rumble Integration
 
