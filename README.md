@@ -176,7 +176,7 @@ All mutation tools require item UUIDs. Use read tools to find IDs first.
 
 | Tool | Description |
 |------|-------------|
-| `roll_dice` | Roll dice with D&D notation (e.g. 2d6+3), supports advantage/disadvantage |
+| `roll_dice` | Roll dice in the dicex 3D tray (e.g. `2d6+3`; advantage `2d20kh1`, keep/drop, exploding) and return the result |
 
 ### Rumble Integration
 

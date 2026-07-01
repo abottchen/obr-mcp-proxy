@@ -92,8 +92,9 @@ get_item_metadata(target_id, ["clash_armorClass"])
 
 **e. Roll attacks**
 ```
-roll_dice("1d20+5")                    → standard attack
-roll_dice("1d20+5", mode="advantage")  → with advantage
+roll_dice("1d20+5")     → standard attack
+roll_dice("2d20kh1+5")  → attack with advantage (keep highest of two d20)
+roll_dice("2d20kl1+5")  → attack with disadvantage (keep lowest of two d20)
 ```
 Compare total to AC. Ties hit. Natural 20 is a critical hit (double damage dice).
 
