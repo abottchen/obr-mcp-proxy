@@ -1,3 +1,5 @@
+import asyncio
+
 from mcp.server.fastmcp import FastMCP
 
 from ..websocket_server import RelayConnection
@@ -6,6 +8,12 @@ ROLL_TIMEOUT = 30.0
 
 
 def register_combat_tools(mcp: FastMCP, relay: RelayConnection) -> None:
+    # dicex handles one roll at a time, and the server's per-roll timeout
+    # starts at send time — serialize rolls here so each roll's 30s window
+    # stays aligned with its actual send and we avoid spurious timeouts /
+    # phantom rolls when multiple requests queue up behind dicex.
+    dice_lock = asyncio.Lock()
+
     @mcp.tool()
     async def roll_dice(notation: str) -> dict:
         """Roll dice in the shared 3D dice tray (dicex) and return the result.
@@ -35,8 +43,9 @@ def register_combat_tools(mcp: FastMCP, relay: RelayConnection) -> None:
             responding (extension missing / GM tab inactive).
         """
         try:
-            return await relay.send_request(
-                "dice.roll", {"notation": notation}, timeout=ROLL_TIMEOUT
-            )
+            async with dice_lock:
+                return await relay.send_request(
+                    "dice.roll", {"notation": notation}, timeout=ROLL_TIMEOUT
+                )
         except (TimeoutError, ConnectionError, RuntimeError) as e:
             return {"error": str(e), "notation": notation}

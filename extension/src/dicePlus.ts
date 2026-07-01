@@ -96,18 +96,22 @@ function rollOnce(notation: string): Promise<DiceRollResult> {
       OBR.broadcast.onMessage(ROLL_RESULT_CHANNEL, (event) => {
         const data = event.data as RollResultMessage;
         if (data?.rollId !== rollId) return;
-        const r = data.result;
-        finishOk({
-          notation,
-          total: r.totalValue,
-          summary: r.rollSummary,
-          groups: r.groups.map((g) => ({
-            description: g.description,
-            diceType: g.diceType,
-            total: g.total,
-            dice: g.dice,
-          })),
-        });
+        try {
+          const r = data.result;
+          finishOk({
+            notation,
+            total: r.totalValue,
+            summary: r.rollSummary,
+            groups: r.groups.map((g) => ({
+              description: g.description,
+              diceType: g.diceType,
+              total: g.total,
+              dice: g.dice,
+            })),
+          });
+        } catch (e) {
+          finishErr(e instanceof Error ? e : new Error("Malformed dicex result"));
+        }
       })
     );
 
