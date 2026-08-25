@@ -31,7 +31,16 @@ def main() -> None:
     relay_port = int(os.environ.get("OBR_MCP_PORT", "9876"))
     mcp_port = int(os.environ.get("OBR_MCP_HTTP_PORT", "3000"))
 
-    relay = RelayConnection(token=token, port=relay_port)
+    # Comma-separated; overrides the built-in allowlist for forks that host the
+    # extension somewhere other than abottchen.github.io.
+    origins_env = os.environ.get("OBR_MCP_ALLOWED_ORIGINS")
+    allowed_origins = (
+        [o.strip() for o in origins_env.split(",") if o.strip()] if origins_env else None
+    )
+
+    relay = RelayConnection(
+        token=token, port=relay_port, allowed_origins=allowed_origins
+    )
     mcp = FastMCP(
         "obr-mcp-server",
         host="127.0.0.1",
