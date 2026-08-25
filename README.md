@@ -64,7 +64,7 @@ mkcert -install
 mkcert -cert-file server/certs/localhost.pem -key-file server/certs/localhost-key.pem localhost 127.0.0.1
 ```
 
-If using Firefox, you may need to accept the certificate by navigating to `https://localhost:9876` and `https://localhost:5173` before connecting.
+If using Firefox, you may need to accept the certificate by navigating to `https://127.0.0.1:9876` and `https://localhost:5173` before connecting. Certificate exceptions are stored per-origin, so accept it for the exact host you connect to.
 
 ### Environment
 
@@ -75,9 +75,18 @@ cp .env.example .env
 # Edit .env to set OBR_MCP_TOKEN
 ```
 
-Optional port overrides:
+Optional overrides:
 - `OBR_MCP_PORT` — WSS relay port (default: 9876)
 - `OBR_MCP_HTTP_PORT` — HTTP MCP server port (default: 3000)
+- `OBR_MCP_ALLOWED_ORIGINS` — comma-separated origins allowed to open a relay
+  connection (default: `https://abottchen.github.io,https://localhost:5173`).
+  Set this if you host the extension somewhere other than the published URL.
+
+The relay rejects WebSocket handshakes from any other origin with `403`.
+WebSocket handshakes are not subject to CORS, so without this check any page
+the GM visits could open a socket to the relay; browsers cannot forge `Origin`,
+which is what makes the check effective. Requests with no `Origin` header at all
+are allowed, so non-browser clients still work — a web page cannot omit it.
 
 ### Install Dependencies
 
@@ -122,9 +131,60 @@ The default HTTP MCP port is `3000`. The example above uses `3001` to match the 
 
    The extension UI is gated to the GM role; non-GM players who load the extension will see a notice that it is GM-only.
 
-3. Open the MCP Relay extension in OBR, enter `wss://localhost:9876` and your token, click Connect. Credentials are saved to localStorage — the extension will auto-reconnect on page refresh and after connection drops.
+3. Open the MCP Relay extension in OBR, enter `wss://127.0.0.1:9876` and your token, click Connect. Credentials are saved to localStorage — the extension will auto-reconnect on page refresh and after connection drops.
 
 4. Claude Code will connect to the MCP server when it loads the `.mcp.json` config. Multiple Claude Code sessions can connect simultaneously.
+
+### Troubleshooting: `NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED`
+
+**Cause.** Firefox 154 (released 2026-08-18) extended Local Network Access
+protections to WebSockets. From the release notes:
+
+> Firefox's Local Network Access protections now extend to WebSocket
+> connections. Websites that try to open a WebSocket to a device on the local
+> network will now ask for permission first.
+
+LNA shipped in Firefox 153, but WebSockets were exempt until 154 — which is why
+this relay worked right up until that update and then stopped. The relay UI runs
+as a cross-origin iframe (`https://abottchen.github.io`) inside
+`https://www.owlbear.rodeo`, so its `wss://localhost:9876` connection is an
+internet-origin page reaching loopback: exactly what LNA now blocks.
+
+**Symptom.** A generic `Firefox can't establish a connection to the server at
+wss://localhost:9876/`, which resembles a TLS, firewall, or certificate fault
+but is none of those. Confirm via `NS_ERROR_LOCAL_NETWORK_ACCESS_DENIED` in the
+console, or a HAR export showing the `wss://` request with `status=0` and
+`time=0` while the server logs nothing — the request never leaves the browser.
+
+**Fix.** In `about:config`, set the String pref (create it if absent):
+
+```
+network.lna.skip-domains = localhost,abottchen.github.io
+```
+
+`SkipDomains` matches *both* source and target domains: listing a source lets
+that site reach local resources, listing a target lets all sites reach that
+resource. Entries are bare hostnames and support a `*.` suffix wildcard.
+Restart Firefox after changing it.
+
+If that still does not take, `network.lna.enabled = false` disables LNA outright
+(and also clears `network.lna.blocking` and `network.lna.block_trackers`). It
+works, but it drops the protection for *all* browsing — prefer scoping it to a
+dedicated Firefox profile (`firefox -P`) used only for the VTT.
+
+Managed deployments can use the `LocalNetworkAccess` enterprise policy, which
+exposes `SkipDomains`, `BlockTrackers`, and `EnablePrompting`.
+
+**Isolating the server from the browser.** Open `https://localhost:9876`
+directly in a tab. Seeing
+
+```
+Failed to open a WebSocket connection: invalid Connection header: keep-alive.
+You cannot access a WebSocket server directly with a browser.
+```
+
+means TCP, TLS, and certificate trust are all fine — top-level navigations are
+exempt from LNA, so only the page-level block remains.
 
 ### Scene Export / Import
 

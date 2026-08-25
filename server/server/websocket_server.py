@@ -3,23 +3,53 @@ import json
 import logging
 import ssl
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import websockets
 from websockets.asyncio.server import Server, ServerConnection
+from websockets.typing import Origin
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 9876
 REQUEST_TIMEOUT = 10.0
 
+# Browsers resolve `localhost` to ::1 before 127.0.0.1, so bind both loopback
+# families rather than IPv4 only.
+#
+# Note: under WSL2 mirrored networking, Windows does not forward ::1 into the
+# VM, so this bind is not reachable from a host browser. Browsers fall back to
+# IPv4 on their own there; this exists for native Linux/macOS hosts.
+LOOPBACK_HOSTS = ["127.0.0.1", "::1"]
+
+# Origins allowed to open a relay connection. WebSocket handshakes are not
+# subject to CORS, so without this any web page the GM visits could open a
+# socket to the relay — browsers cannot forge Origin, which is what makes the
+# check meaningful. A missing Origin is allowed so non-browser clients (tests,
+# CLI tools) still work; a malicious page cannot omit the header.
+DEFAULT_ALLOWED_ORIGINS = [
+    "https://abottchen.github.io",
+    "https://localhost:5173",
+]
+
 
 class RelayConnection:
     """Manages the WebSocket connection to the OBR relay extension."""
 
-    def __init__(self, token: str, port: int = DEFAULT_PORT, max_concurrent: int = 3) -> None:
+    def __init__(
+        self,
+        token: str,
+        port: int = DEFAULT_PORT,
+        max_concurrent: int = 3,
+        allowed_origins: Sequence[str] | None = None,
+    ) -> None:
         self._token = token
         self._port = port
+        self._allowed_origins = list(
+            DEFAULT_ALLOWED_ORIGINS if allowed_origins is None else allowed_origins
+        )
         self._ws: ServerConnection | None = None
         self._server: Server | None = None
         self._pending: dict[str, asyncio.Future[dict]] = {}
@@ -32,13 +62,34 @@ class RelayConnection:
 
     async def start(self) -> None:
         ssl_ctx = self._make_ssl_context()
-        self._server = await websockets.serve(
-            self._handle_connection,
-            "127.0.0.1",
+        try:
+            self._server = await websockets.serve(
+                self._handle_connection,
+                LOOPBACK_HOSTS,
+                self._port,
+                ssl=ssl_ctx,
+                origins=self._origins,
+            )
+        except OSError as exc:
+            # Hosts without IPv6 loopback can still serve IPv4 clients.
+            logger.warning("Could not bind %s (%s); falling back to IPv4 only", LOOPBACK_HOSTS, exc)
+            self._server = await websockets.serve(
+                self._handle_connection,
+                "127.0.0.1",
+                self._port,
+                ssl=ssl_ctx,
+                origins=self._origins,
+            )
+        logger.info(
+            "WSS server listening on wss://localhost:%d (origins: %s)",
             self._port,
-            ssl=ssl_ctx,
+            ", ".join(self._allowed_origins) or "none",
         )
-        logger.info("WSS server listening on wss://127.0.0.1:%d", self._port)
+
+    @property
+    def _origins(self) -> list[Origin | None]:
+        # None matches a request with no Origin header at all.
+        return [cast(Origin, o) for o in self._allowed_origins] + [None]
 
     async def stop(self) -> None:
         if self._server:
